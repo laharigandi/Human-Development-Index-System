@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HDI Prediction System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" />
+</head>
+<body>
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+<!-- ═══════════════════════════ NAVBAR ═══════════════════════════ -->
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+      <div class="brand-icon"><i class="bi bi-globe-americas"></i></div>
+      <div>
+        <span class="brand-title">HDI Predictor</span>
+        <span class="brand-sub d-block">Human Development Index</span>
+      </div>
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-1">
+        <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="#categories">Categories</a></li>
+        <li class="nav-item"><a class="nav-link" href="#predict">Predict</a></li>
+        <li class="nav-item ms-lg-1">
+          <a class="btn btn-predict-nav" href="#predict">
+            <i class="bi bi-lightning-charge-fill me-1"></i>Try Now
+          </a>
+        </li>
+        <li class="nav-item ms-lg-1">
+          <button id="themeToggleBtn" class="btn theme-toggle" aria-label="Toggle Theme" title="Switch Theme">
+            <i class="bi bi-moon-stars-fill"></i>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ HERO ═══════════════════════════ -->
+<section class="hero-section">
+  <div class="hero-bg-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+  </div>
+  <div class="container position-relative">
+    <div class="row align-items-center min-vh-hero">
+      <div class="col-lg-6 hero-text">
+        <div class="hero-badge mb-3">
+          <i class="bi bi-cpu-fill me-2"></i>ML-Powered Prediction
+        </div>
+        <h1 class="hero-title">Human Development<br /><span class="gradient-text">Index Predictor</span></h1>
+        <p class="hero-desc">
+          Predict a country's Human Development Index category using advanced machine learning.
+          Analyze health, education, and income indicators to assess development levels instantly.
+        </p>
+        <div class="d-flex flex-wrap gap-3 mt-4">
+          <a href="#predict" class="btn btn-hero-primary">
+            <i class="bi bi-play-circle-fill me-2"></i>Start Predicting
+          </a>
+          <a href="#about" class="btn btn-hero-outline">
+            <i class="bi bi-info-circle me-2"></i>Learn More
+          </a>
+        </div>
+      </div>
+      <div class="col-lg-6 d-none d-lg-flex justify-content-center">
+        <div class="hero-visual">
+          <div class="stat-card stat-card-1">
+            <i class="bi bi-heart-pulse-fill"></i>
+            <span>Life Expectancy</span>
+          </div>
+          <div class="stat-card stat-card-2">
+            <i class="bi bi-mortarboard-fill"></i>
+            <span>Education Index</span>
+          </div>
+          <div class="stat-card stat-card-3">
+            <i class="bi bi-currency-dollar"></i>
+            <span>GNI Per Capita</span>
+          </div>
+          <div class="globe-ring">
+            <i class="bi bi-globe2 globe-icon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ STATS BAR ═══════════════════════════ -->
+<section class="stats-bar">
+  <div class="container">
+    <div class="row g-0">
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="195">0</div>
+        <div class="stat-label">Countries Covered</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="4">0</div>
+        <div class="stat-label">HDI Categories</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="4">0</div>
+        <div class="stat-label">Key Indicators</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="1">0</div>
+        <div class="stat-label">Machine Learning Model</div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ═══════════════════════════ ABOUT ═══════════════════════════ -->
+<section id="about" class="section-pad">
+  <div class="container">
+    <div class="section-header text-center mb-5">
+      <span class="section-tag">About HDI</span>
+      <h2 class="section-title">What is the Human Development Index?</h2>
+      <p class="section-desc">
+        The HDI is a composite statistic developed by the UNDP to measure and rank countries
+        by levels of human development across three key dimensions.
+      </p>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="feature-card h-100">
+          <div class="feature-icon health-icon">
+            <i class="bi bi-heart-pulse-fill"></i>
+          </div>
+          <h5>Health Dimension</h5>
+          <p>Measured by life expectancy at birth, reflecting the ability to live a long and healthy life.</p>
+          <div class="feature-range">
+            <span class="range-label">Range</span>
+            <span class="range-value">20 – 90 years</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-card h-100">
+          <div class="feature-icon edu-icon">
+            <i class="bi bi-mortarboard-fill"></i>
+          </div>
+          <h5>Education Dimension</h5>
+          <p>Measured by mean years of schooling and expected years of schooling for children.</p>
+          <div class="feature-range">
+            <span class="range-label">Mean Schooling</span>
+            <span class="range-value">0 – 20 years</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-card h-100">
+          <div class="feature-icon income-icon">
+            <i class="bi bi-cash-stack"></i>
+          </div>
+          <h5>Income Dimension</h5>
+          <p>Measured by Gross National Income per capita (PPP $), reflecting the standard of living.</p>
+          <div class="feature-range">
+            <span class="range-label">GNI Range</span>
+            <span class="range-value">$100 – $150,000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ═══════════════════════════ CATEGORIES ═══════════════════════════ -->
+<section id="categories" class="section-pad bg-section">
+  <div class="container">
+    <div class="section-header text-center mb-5">
+      <span class="section-tag">Classification</span>
+      <h2 class="section-title">HDI Categories</h2>
+      <p class="section-desc">Countries are classified into four development tiers based on their composite HDI score.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-sm-6 col-lg-3">
+        <div class="category-card very-high h-100">
+          <div class="cat-icon"><i class="bi bi-star-fill"></i></div>
+          <h5>Very High</h5>
+          <p class="cat-score">HDI ≥ 0.800</p>
+          <p class="cat-desc">Advanced economies with excellent health, education, and income standards.</p>
+          <div class="cat-examples">Norway, Switzerland, Germany</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="category-card high h-100">
+          <div class="cat-icon"><i class="bi bi-arrow-up-circle-fill"></i></div>
+          <h5>High</h5>
+          <p class="cat-score">0.700 – 0.799</p>
+          <p class="cat-desc">Developing nations with good progress in human development indicators.</p>
+          <div class="cat-examples">Brazil, China, Malaysia</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="category-card medium h-100">
+          <div class="cat-icon"><i class="bi bi-dash-circle-fill"></i></div>
+          <h5>Medium</h5>
+          <p class="cat-score">0.550 – 0.699</p>
+          <p class="cat-desc">Countries with moderate development facing challenges in key indicators.</p>
+          <div class="cat-examples">India, Kenya, Bangladesh</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="category-card low h-100">
+          <div class="cat-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+          <h5>Low</h5>
+          <p class="cat-score">HDI &lt; 0.550</p>
+          <p class="cat-desc">Nations facing significant development challenges requiring urgent attention.</p>
+          <div class="cat-examples">Niger, Mali, Chad</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ═══════════════════════════ PREDICTION FORM ═══════════════════════════ -->
+<section id="predict" class="section-pad">
+  <div class="container">
+    <div class="section-header text-center mb-5">
+      <span class="section-tag">ML Prediction</span>
+      <h2 class="section-title">Predict HDI Category</h2>
+      <p class="section-desc">Enter the development indicators below to get an instant ML-powered HDI prediction.</p>
+    </div>
+    <div id="reportExportArea">
+      <div class="row justify-content-center g-4">
+      <!-- Form Card -->
+      <div class="col-lg-6">
+        <div class="predict-card">
+          <div class="predict-card-header">
+            <i class="bi bi-sliders me-2"></i>Input Indicators
+          </div>
+          <div class="predict-card-body">
+            <form id="hdiForm" method="post" action="/predict" novalidate>
+              <!-- Country Search -->
+              <div class="mb-4 country-block">
+                <label class="form-label-custom" for="countrySearch">
+                  <i class="bi bi-geo-alt-fill text-info me-2"></i>Country
+                </label>
+                <div class="country-select-wrapper">
+                  <input type="text" id="countrySearch" class="form-control form-control-custom" placeholder="Search country" autocomplete="off" required />
+                  <input type="hidden" id="countryInput" name="country" />
+                </div>
+                <div class="country-dropdown d-none" id="countryDropdown"></div>
+                <div class="input-hint">Start typing to search countries. Country value does not affect prediction.</div>
+                <div class="invalid-feedback-custom" id="err_country"></div>
+              </div>
+              <!-- Life Expectancy -->
+              <div class="mb-4">
+                <label class="form-label-custom" for="life_expectancy">
+                  <i class="bi bi-heart-pulse-fill text-danger me-2"></i>Life Expectancy
+                  <span class="unit-badge">years</span>
+                </label>
+                <input type="number" class="form-control form-control-custom" id="life_expectancy"
+                       name="life_expectancy" placeholder="e.g. 72.5" min="20" max="90" step="0.1" required />
+                <div class="input-hint">Range: 20 – 90 years</div>
+                <div class="input-status" id="status_life_expectancy"></div>
+                <div class="invalid-feedback-custom" id="err_life_expectancy"></div>
+              </div>
+              <!-- Mean Years of Schooling -->
+              <div class="mb-4">
+                <label class="form-label-custom" for="mean_years_schooling">
+                  <i class="bi bi-book-fill text-primary me-2"></i>Mean Years of Schooling
+                  <span class="unit-badge">years</span>
+                </label>
+                <input type="number" class="form-control form-control-custom" id="mean_years_schooling"
+                       name="mean_years_schooling" placeholder="e.g. 8.5" min="0" max="20" step="0.1" required />
+                <div class="input-hint">Range: 0 – 20 years</div>
+                <div class="input-status" id="status_mean_years_schooling"></div>
+                <div class="invalid-feedback-custom" id="err_mean_years_schooling"></div>
+              </div>
+              <!-- Expected Years of Schooling -->
+              <div class="mb-4">
+                <label class="form-label-custom" for="expected_years_schooling">
+                  <i class="bi bi-mortarboard-fill text-success me-2"></i>Expected Years of Schooling
+                  <span class="unit-badge">years</span>
+                </label>
+                <input type="number" class="form-control form-control-custom" id="expected_years_schooling"
+                       name="expected_years_schooling" placeholder="e.g. 13.0" min="0" max="25" step="0.1" required />
+                <div class="input-hint">Range: 0 – 25 years</div>
+                <div class="input-status" id="status_expected_years_schooling"></div>
+                <div class="invalid-feedback-custom" id="err_expected_years_schooling"></div>
+              </div>
+              <!-- GNI Per Capita -->
+              <div class="mb-4">
+                <label class="form-label-custom" for="gni_per_capita">
+                  <i class="bi bi-currency-dollar text-warning me-2"></i>GNI Per Capita
+                  <span class="unit-badge">PPP $</span>
+                </label>
+                <input type="number" class="form-control form-control-custom" id="gni_per_capita"
+                       name="gni_per_capita" placeholder="e.g. 15000" min="100" max="150000" step="1" required />
+                <div class="input-hint">Range: $100 – $150,000</div>
+                <div class="input-status" id="status_gni_per_capita"></div>
+                <div class="invalid-feedback-custom" id="err_gni_per_capita"></div>
+              </div>
+              <!-- Error Alert -->
+              <div id="formError" class="alert-custom d-none">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span id="formErrorMsg"></span>
+              </div>
+              <!-- Loading Panel -->
+              <div id="loadingState" class="loading-panel d-none">
+                <div class="loading-step" id="loadingStepText">Preparing analysis...</div>
+                <div class="loading-progress-bar"><div class="loading-progress-fill" id="loadingProgress"></div></div>
+                <div class="loading-meta"><span id="loadingPercent">0%</span> complete</div>
+              </div>
+              <!-- Submit -->
+              <button type="submit" class="btn btn-predict w-100" id="predictBtn">
+                <span class="btn-text">
+                  <i class="bi bi-lightning-charge-fill me-2"></i>Predict HDI Category
+                </span>
+                <span class="btn-loading d-none">
+                  <span class="btn-loader-dot"></span>
+                  <span class="btn-loader-dot"></span>
+                  <span class="btn-loader-dot"></span>
+                  Calculating...
+                </span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <!-- Result Card -->
+      <div class="col-lg-6">
+          <div id="reportContent">
+            <!-- Placeholder -->
+            <div id="resultPlaceholder" class="result-placeholder h-100">
+              <div class="placeholder-inner">
+                <div class="placeholder-icon">
+                  <i class="bi bi-bar-chart-line-fill"></i>
+                </div>
+                <h5>Prediction Result</h5>
+                <p>Fill in the indicators on the left and click <strong>Predict</strong> to see the HDI category.</p>
+                <div class="placeholder-hints">
+                  <div class="hint-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Instant ML prediction</div>
+                  <div class="hint-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Confidence scores</div>
+                  <div class="hint-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Development insights</div>
+                </div>
+              </div>
+            </div>
+            <!-- Result -->
+            <div id="resultCard" class="result-card d-none h-100">
+              <div class="result-header">
+                <div>
+                  <i class="bi bi-check-circle-fill me-2"></i>Prediction Result
+                </div>
+                <span id="predictionStatusBadge" class="status-badge badge badge-success">Prediction Successful</span>
+              </div>
+              <div class="result-body">
+                <div class="result-top-grid row g-3 align-items-center mb-4">
+                  <div class="col-md-7">
+                    <div class="result-category-wrapper text-center text-md-start">
+                      <div class="result-icon-ring" id="resultIconRing">
+                        <i class="bi" id="resultIcon"></i>
+                      </div>
+                      <div class="result-label">HDI Category</div>
+                      <div class="result-category" id="resultCategory"></div>
+                      <div class="result-country-display" id="resultCountryDisplay">Country: <span class="country-name">-</span></div>
+                      <p class="result-description" id="resultDescription"></p>
+                    </div>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="result-score-card">
+                      <div class="score-header">
+                        <span>Predicted HDI Score</span>
+                        <span class="score-badge" id="resultCategoryBadge">Category</span>
+                      </div>
+                      <div class="score-value" id="hdiScoreValue">0.000</div>
+                      <div class="score-meta">
+                        <div><strong>Date:</strong> <span id="resultDate">-</span></div>
+                        <div><strong>Time:</strong> <span id="resultTime">-</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-lg-6">
+                    <div class="explanation-card">
+                      <div class="card-title"><i class="bi bi-lightbulb-fill me-2"></i>Why was this prediction made?</div>
+                      <div class="explanation-items" id="explanationItems"></div>
+                      <div class="overall-explanation" id="overallExplanation"></div>
+                    </div>
+                  </div>
+                  <div class="col-lg-6">
+                    <div class="contribution-card">
+                      <div class="card-title"><i class="bi bi-pie-chart-fill me-2"></i>Feature Contribution</div>
+                      <div class="contribution-bars" id="contributionBars"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-3 mt-3">
+                  <div class="col-md-6">
+                    <div class="insight-card strength-card">
+                      <div class="card-title"><i class="bi bi-shield-check me-2"></i>Strengths</div>
+                      <ul id="strengthList"></ul>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="insight-card weakness-card">
+                      <div class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>Weaknesses</div>
+                      <ul id="weaknessList"></ul>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-3 mt-3">
+                  <div class="col-lg-6">
+                    <div class="scenario-card">
+                      <div class="card-title"><i class="bi bi-graph-up-arrow me-2"></i>Development Scenario</div>
+                      <div class="scenario-title" id="scenarioTitle">-</div>
+                      <p class="scenario-description" id="scenarioDescription"></p>
+                      <div class="scenario-reason"><strong>Reason:</strong> <span id="scenarioReason">-</span></div>
+                    </div>
+                  </div>
+                  <div class="col-lg-6">
+                    <div class="ai-report-card">
+                      <div class="card-title"><i class="bi bi-file-earmark-text-fill me-2"></i>AI Development Report</div>
+                      <p id="reportSummary">A concise development report will appear here after prediction.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="confidence-section mt-4">
+                  <div class="confidence-title"><i class="bi bi-bar-chart-fill me-2"></i>Confidence Scores</div>
+                  <div id="confidenceBars"></div>
+                </div>
+                <div class="input-summary mt-4">
+                  <div class="summary-title"><i class="bi bi-list-check me-2"></i>Input Summary</div>
+                  <div class="row g-2" id="inputSummary"></div>
+                </div>
+                <div class="recommendation-panel mt-4">
+                  <div class="summary-title"><i class="bi bi-lightbulb-fill me-2"></i>AI Recommendations</div>
+                  <ul class="recommendation-list" id="recommendationList"></ul>
+                </div>
+                <div class="result-actions d-flex flex-wrap gap-2 mt-4">
+                  <button type="button" class="btn btn-outline-light btn-sm" id="copyResultBtn"><i class="bi bi-clipboard me-1"></i>Copy Result</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="downloadPDFBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="downloadExcelBtn"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Excel</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="downloadCSVBtn"><i class="bi bi-file-earmark-spreadsheet-fill me-1"></i>Download CSV</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="printBtn"><i class="bi bi-printer me-1"></i>Print</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="copyLinkBtn"><i class="bi bi-link-45deg me-1"></i>Copy Link</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="shareWhatsAppBtn"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="shareLinkedInBtn"><i class="bi bi-linkedin me-1"></i>LinkedIn</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" id="shareEmailBtn"><i class="bi bi-envelope me-1"></i>Email</button>
+                </div>
+        </div>
+      </div>
+    </div>
+    <div id="dashboardPanel" class="dashboard-panel d-none mt-4">
+      <div class="dashboard-header d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mb-3">
+        <div>
+          <span class="section-tag">Analytics Dashboard</span>
+          <h3 class="dashboard-title mb-1">Prediction Analytics</h3>
+          <p class="dashboard-desc mb-0">A modern overview of the latest HDI prediction, powered by Chart.js and dynamic insights.</p>
+        </div>
+      </div>
+      <div class="dashboard-stat-grid row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+          <div class="dashboard-stat-card dashboard-stat-health">
+            <div class="stat-icon"><i class="bi bi-heart-pulse-fill"></i></div>
+            <div class="stat-meta">Health Score</div>
+            <div class="stat-value" id="healthScoreVal">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="dashboard-stat-card dashboard-stat-education">
+            <div class="stat-icon"><i class="bi bi-book-fill"></i></div>
+            <div class="stat-meta">Education Score</div>
+            <div class="stat-value" id="educationScoreVal">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="dashboard-stat-card dashboard-stat-income">
+            <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
+            <div class="stat-meta">Income Score</div>
+            <div class="stat-value" id="incomeScoreVal">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="dashboard-stat-card dashboard-stat-status">
+            <div class="stat-icon"><i class="bi bi-bar-chart-fill"></i></div>
+            <div class="stat-meta">Development Status</div>
+            <div class="stat-value" id="developmentStatusVal">Pending</div>
+          </div>
+        </div>
+      </div>
+      <div class="dashboard-grid row g-3">
+        <div class="col-lg-6">
+          <div class="dashboard-card dashboard-summary-card">
+            <div class="dashboard-card-header d-flex align-items-center justify-content-between mb-3">
+              <div>
+                <h5 class="dashboard-card-title">Prediction Summary</h5>
+                <p class="dashboard-card-subtitle mb-0">Details from the latest HDI forecast.</p>
+              </div>
+              <span class="badge badge-soft-secondary">Realtime</span>
+            </div>
+            <div class="dashboard-summary-list">
+              <div class="dashboard-summary-item"><span>Country</span><strong id="summaryCountry">-</strong></div>
+              <div class="dashboard-summary-item"><span>HDI Category</span><strong id="summaryCategory">-</strong></div>
+              <div class="dashboard-summary-item"><span>Prediction Time</span><strong id="predictionTime">-</strong></div>
+              <div class="dashboard-summary-item"><span>Health Indicator</span><strong id="summaryHealth">-</strong></div>
+              <div class="dashboard-summary-item"><span>Education Indicator</span><strong id="summaryEducation">-</strong></div>
+              <div class="dashboard-summary-item"><span>Income Indicator</span><strong id="summaryIncome">-</strong></div>
+              <div class="dashboard-summary-item"><span>Status</span><strong id="summaryStatus">-</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card chart-card gauge-card">
+            <div class="chart-title">HDI Gauge</div>
+            <div class="gauge-wrapper position-relative">
+              <canvas id="dashboardGaugeChart"></canvas>
+              <div class="chartjs-gauge-center"><span id="gaugeScoreText">0.000</span><small>HDI Score</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card chart-card">
+            <div class="chart-title">Indicator Comparison</div>
+            <canvas id="dashboardBarChart"></canvas>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card chart-card">
+            <div class="chart-title">Human Development Profile</div>
+            <canvas id="dashboardRadarChart"></canvas>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card chart-card">
+            <div class="chart-title">Development Indicator Distribution</div>
+            <canvas id="dashboardDoughnutChart"></canvas>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card progress-card">
+            <div class="chart-title">Progress Metrics</div>
+            <div class="progress-details" id="dashboardProgressBars"></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="dashboard-card dashboard-insights-card">
+            <div class="summary-title"><i class="bi bi-lightbulb-fill me-2"></i>Professional Insights</div>
+            <ul class="insights-list" id="dashboardInsightsList"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row justify-content-center mt-4">
+      <div class="col-12">
+        <div class="history-card">
+          <div class="history-header d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div>
+              <div class="history-title">Prediction History</div>
+              <div class="history-sub">Review recent predictions stored securely in your browser.</div>
+            </div>
+            <div class="history-controls d-flex gap-2 flex-wrap">
+              <input type="search" id="historySearch" class="form-control form-control-custom history-search" placeholder="Search history" />
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="historySortBtn"><i class="bi bi-arrow-down-up me-1"></i>Sort by Date</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="clearHistoryBtn"><i class="bi bi-trash me-1"></i>Clear History</button>
+            </div>
+          </div>
+          <div class="table-responsive history-table-wrapper">
+            <table class="table table-borderless history-table" id="historyTable">
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>HDI Score</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Download</th>
+                  <th>Delete</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+<button id="backToTopBtn" class="back-to-top" aria-label="Back to top">
+  <i class="bi bi-arrow-up"></i>
+</button>
+<footer class="footer">
+  <div class="container">
+    <div class="row align-items-center gy-3">
+      <div class="col-md-4">
+        <div class="d-flex align-items-center gap-2">
+          <div class="brand-icon brand-icon-sm"><i class="bi bi-globe-americas"></i></div>
+          <div>
+            <div class="footer-brand">HDI Predictor</div>
+            <div class="footer-sub">Human Development Index System</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-center">
+        <div class="footer-links">
+          <a href="#about">About</a>
+          <a href="#categories">Categories</a>
+          <a href="#predict">Predict</a>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <div class="footer-tech">
+          <span class="tech-badge"><i class="bi bi-filetype-py me-1"></i>Python</span>
+          <span class="tech-badge"><i class="bi bi-server me-1"></i>Flask</span>
+          <span class="tech-badge"><i class="bi bi-cpu me-1"></i>Scikit-learn</span>
+        </div>
+      </div>
+    </div>
+    <hr class="footer-divider" />
+    <p class="footer-copy text-center mb-0">
+      © 2025 HDI Prediction System · Built with Machine Learning & Flask
+    </p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
