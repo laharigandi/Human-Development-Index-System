@@ -1,6 +1,6 @@
 ﻿/**
  * script.js — HDI Prediction System
- * Handles form validation, country selection, analytics, charts, history, and report reporting.
+ * Handles form validation, country selection, analytics, charts, history, and report generation.
  */
 
 "use strict";
@@ -66,6 +66,52 @@ const CATEGORY_COLORS = {
   "Low":       { bar: "#ef4444", ring: "rgba(239,68,68,0.15)",   border: "#ef4444" },
 };
 
+// Country HDI comparison data (realistic demo values)
+const COUNTRY_HDI_COMPARISON = {
+  "United States": 0.921,
+  "Germany": 0.902,
+  "Japan": 0.890,
+  "China": 0.768,
+  "India": 0.786,
+  "Brazil": 0.765,
+  "Norway": 0.957,
+  "Switzerland": 0.946,
+  "Singapore": 0.942,
+  "South Korea": 0.925,
+  "United Kingdom": 0.926,
+  "France": 0.891,
+  "Canada": 0.924,
+  "Australia": 0.945,
+  "Netherlands": 0.945,
+  "Sweden": 0.945,
+  "Denmark": 0.945,
+  "Finland": 0.938,
+  "Austria": 0.925,
+  "Belgium": 0.923,
+  "Malaysia": 0.803,
+  "Thailand": 0.777,
+  "Indonesia": 0.720,
+  "Mexico": 0.767,
+  "Philippines": 0.721,
+  "Vietnam": 0.703,
+  "Egypt": 0.696,
+  "Russia": 0.798,
+  "Ireland": 0.944,
+  "Italy": 0.891,
+  "Spain": 0.891,
+  "Portugal": 0.873,
+  "Poland": 0.873,
+  "New Zealand": 0.931,
+  "Israel": 0.928,
+  "Qatar": 0.845,
+  "Saudi Arabia": 0.844,
+  "United Arab Emirates": 0.843,
+  "South Africa": 0.639,
+  "Nigeria": 0.541,
+  "Kenya": 0.544,
+  "Ghana": 0.592,
+};
+
 const state = {
   chartInstances: {
     result: [],
@@ -80,8 +126,8 @@ const state = {
 // ── DOM Refs ───────────────────────────────────────────────────────────────────
 const form             = document.getElementById("hdiForm");
 const predictBtn       = document.getElementById("predictBtn");
-const btnText          = predictBtn.querySelector(".btn-text");
-const btnLoading       = predictBtn.querySelector(".btn-loading");
+const btnText          = predictBtn ? predictBtn.querySelector(".btn-text") : null;
+const btnLoading       = predictBtn ? predictBtn.querySelector(".btn-loading") : null;
 const formError        = document.getElementById("formError");
 const formErrorMsg     = document.getElementById("formErrorMsg");
 const resultPlaceholder = document.getElementById("resultPlaceholder");
@@ -96,10 +142,6 @@ const loadingPercent   = document.getElementById("loadingPercent");
 const recommendationList = document.getElementById("recommendationList");
 const resultCountryDisplay = document.getElementById("resultCountryDisplay");
 const resultCountryName = resultCountryDisplay ? resultCountryDisplay.querySelector(".country-name") : null;
-const historySearch    = document.getElementById("historySearch");
-const historyBody      = document.getElementById("historyBody");
-const historySortBtn   = document.getElementById("historySortBtn");
-const clearHistoryBtn  = document.getElementById("clearHistoryBtn");
 const toastContainer   = document.getElementById("toastContainer");
 const backToTopBtn     = document.getElementById("backToTopBtn");
 const statsCounters    = document.querySelectorAll(".stat-number[data-target]");
@@ -113,18 +155,11 @@ const shareWhatsAppBtn     = document.getElementById("shareWhatsAppBtn");
 const shareLinkedInBtn     = document.getElementById("shareLinkedInBtn");
 const shareEmailBtn        = document.getElementById("shareEmailBtn");
 const dashboardBarCanvas    = document.getElementById("dashboardBarChart");
-const dashboardRadarCanvas  = document.getElementById("dashboardRadarChart");
 const dashboardDoughnutCanvas = document.getElementById("dashboardDoughnutChart");
-const dashboardGaugeCanvas  = document.getElementById("dashboardGaugeChart");
 const dashboardProgressBars = document.getElementById("dashboardProgressBars");
 const contributionBars     = document.getElementById("contributionBars");
-const explanationItems     = document.getElementById("explanationItems");
-const overallExplanation   = document.getElementById("overallExplanation");
 const strengthList         = document.getElementById("strengthList");
 const weaknessList         = document.getElementById("weaknessList");
-const scenarioTitle        = document.getElementById("scenarioTitle");
-const scenarioDescription  = document.getElementById("scenarioDescription");
-const scenarioReason       = document.getElementById("scenarioReason");
 const reportSummary        = document.getElementById("reportSummary");
 const hdiScoreValue        = document.getElementById("hdiScoreValue");
 const resultDate           = document.getElementById("resultDate");
@@ -132,6 +167,8 @@ const resultTime           = document.getElementById("resultTime");
 const resultCategoryBadge  = document.getElementById("resultCategoryBadge");
 const predictionStatusBadge = document.getElementById("predictionStatusBadge");
 const resultIconRing       = document.getElementById("resultIconRing");
+const confidenceBars       = document.getElementById("confidenceBars");
+const inputSummary         = document.getElementById("inputSummary");
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getFlagEmoji(code) {
@@ -177,21 +214,27 @@ function renderExplanation(inputs) {
     { id: "gni_per_capita", label: "GNI Per Capita" },
   ];
 
-  explanationItems.innerHTML = items.map(item => {
-    const status = getIndicatorStatus(item.id, inputs[item.id]);
-    const contribution = buildContributionLabel(item.id, inputs[item.id]);
-    return `
-      <div class="explanation-item">
-        <strong>${item.label}</strong>
-        <span>${status.label} — ${contribution}</span>
-      </div>`;
-  }).join("");
+  const explanationItems = document.getElementById("explanationItems");
+  if (explanationItems) {
+    explanationItems.innerHTML = items.map(item => {
+      const status = getIndicatorStatus(item.id, inputs[item.id]);
+      const contribution = buildContributionLabel(item.id, inputs[item.id]);
+      return `
+        <div class="explanation-item">
+          <strong>${item.label}</strong>
+          <span>${status.label} — ${contribution}</span>
+        </div>`;
+    }).join("");
+  }
 
-  const healthValue = inputs.life_expectancy >= 75 ? "excellent health" : inputs.life_expectancy >= 60 ? "stable health" : "health that needs stronger support";
-  const educationValue = (inputs.mean_years_schooling + inputs.expected_years_schooling) / 2 >= 12 ? "solid educational attainment" : "education that needs further investment";
-  const incomeValue = inputs.gni_per_capita >= 20000 ? "strong income capacity" : "income that requires uplift";
+  const overallExplanation = document.getElementById("overallExplanation");
+  if (overallExplanation) {
+    const healthValue = inputs.life_expectancy >= 75 ? "excellent health" : inputs.life_expectancy >= 60 ? "stable health" : "health that needs stronger support";
+    const educationValue = (inputs.mean_years_schooling + inputs.expected_years_schooling) / 2 >= 12 ? "solid educational attainment" : "education that needs further investment";
+    const incomeValue = inputs.gni_per_capita >= 20000 ? "strong income capacity" : "income that requires uplift";
 
-  overallExplanation.textContent = `This prediction reflects ${healthValue}, ${educationValue}, and ${incomeValue}. The selected category is driven by the combined contribution of health, schooling, and income performance.`;
+    overallExplanation.textContent = `This prediction reflects ${healthValue}, ${educationValue}, and ${incomeValue}. The selected category is driven by the combined contribution of health, schooling, and income performance.`;
+  }
 }
 
 function renderFeatureContributions(inputs) {
@@ -202,17 +245,19 @@ function renderFeatureContributions(inputs) {
     { label: "Income", value: clamp((Math.log(inputs.gni_per_capita) - Math.log(100)) / (Math.log(150000) - Math.log(100)) * 100, 0, 100), color: "#8b5cf6" },
   ];
 
-  contributionBars.innerHTML = contributions.map(item => `
-    <div class="contribution-bar">
-      <div class="contribution-label"><span>${item.label}</span><span>${Math.round(item.value)}%</span></div>
-      <div class="feature-bar-bg"><div class="feature-bar-fill" style="width:0; background:${item.color}" data-value="${item.value}"></div></div>
-    </div>`).join("");
+  if (contributionBars) {
+    contributionBars.innerHTML = contributions.map(item => `
+      <div class="contribution-bar">
+        <div class="contribution-label"><span>${item.label}</span><span>${Math.round(item.value)}%</span></div>
+        <div class="feature-bar-bg"><div class="feature-bar-fill" style="width:0; background:${item.color}" data-value="${item.value}"></div></div>
+      </div>`).join("");
 
-  requestAnimationFrame(() => {
-    contributionBars.querySelectorAll(".feature-bar-fill").forEach(bar => {
-      bar.style.width = `${bar.dataset.value}%`;
+    requestAnimationFrame(() => {
+      contributionBars.querySelectorAll(".feature-bar-fill").forEach(bar => {
+        bar.style.width = `${bar.dataset.value}%`;
+      });
     });
-  });
+  }
 }
 
 function renderProgressMetrics(inputs) {
@@ -223,17 +268,19 @@ function renderProgressMetrics(inputs) {
     { label: "Income", value: clamp((Math.log(inputs.gni_per_capita) - Math.log(100)) / (Math.log(150000) - Math.log(100)) * 100, 0, 100), color: "#8b5cf6" },
   ];
 
-  dashboardProgressBars.innerHTML = progress.map(item => `
-    <div class="progress-metric">
-      <div class="progress-metric-label"><span>${item.label}</span><span>${Math.round(item.value)}%</span></div>
-      <div class="progress-meter"><div class="progress-meter-fill" style="width:0; background:${item.color}" data-value="${item.value}"></div></div>
-    </div>`).join("");
+  if (dashboardProgressBars) {
+    dashboardProgressBars.innerHTML = progress.map(item => `
+      <div class="progress-metric">
+        <div class="progress-metric-label"><span>${item.label}</span><span>${Math.round(item.value)}%</span></div>
+        <div class="progress-meter"><div class="progress-meter-fill" style="width:0; background:${item.color}" data-value="${item.value}"></div></div>
+      </div>`).join("");
 
-  requestAnimationFrame(() => {
-    dashboardProgressBars.querySelectorAll(".progress-meter-fill").forEach(bar => {
-      bar.style.width = `${bar.dataset.value}%`;
+    requestAnimationFrame(() => {
+      dashboardProgressBars.querySelectorAll(".progress-meter-fill").forEach(bar => {
+        bar.style.width = `${bar.dataset.value}%`;
+      });
     });
-  });
+  }
 }
 
 function renderStrengthWeakness(inputs, category) {
@@ -255,8 +302,12 @@ function renderStrengthWeakness(inputs, category) {
   if (category === "Very High") strengths.push("Stable governance and policy environment");
   if (category === "Low") weaknesses.push("Development intervention required");
 
-  strengthList.innerHTML = strengths.length ? strengths.map(item => `<li>${item}</li>`).join("") : `<li>No significant strengths identified.</li>`;
-  weaknessList.innerHTML = weaknesses.length ? weaknesses.map(item => `<li>${item}</li>`).join("") : `<li>No immediate weaknesses identified.</li>`;
+  if (strengthList) {
+    strengthList.innerHTML = strengths.length ? strengths.map(item => `<li>${item}</li>`).join("") : `<li>No significant strengths identified.</li>`;
+  }
+  if (weaknessList) {
+    weaknessList.innerHTML = weaknesses.length ? weaknesses.map(item => `<li>${item}</li>`).join("") : `<li>No immediate weaknesses identified.</li>`;
+  }
 }
 
 function buildScenario(category, inputs) {
@@ -291,97 +342,23 @@ function buildScenario(category, inputs) {
 
 function renderScenario(category, inputs) {
   const scenario = buildScenario(category, inputs);
-  scenarioTitle.textContent = scenario.title;
-  scenarioDescription.textContent = scenario.description;
-  scenarioReason.textContent = scenario.reason;
+  const scenarioTitle = document.getElementById("scenarioTitle");
+  const scenarioDescription = document.getElementById("scenarioDescription");
+  const scenarioReason = document.getElementById("scenarioReason");
+  
+  if (scenarioTitle) scenarioTitle.textContent = scenario.title;
+  if (scenarioDescription) scenarioDescription.textContent = scenario.description;
+  if (scenarioReason) scenarioReason.textContent = scenario.reason;
 }
 
 function renderAiSummary(category, inputs, country) {
   const score = estimateHdiScore(inputs);
-  reportSummary.textContent = `The predicted HDI score is ${formatHdiScore(score)}, placing ${country} in the ${category} category. Life expectancy is ${inputs.life_expectancy >= 75 ? "strong" : inputs.life_expectancy >= 60 ? "stable" : "challenged"}, education shows ${inputs.mean_years_schooling >= 12 ? "good" : "room for improvement"}, and income remains ${inputs.gni_per_capita >= 20000 ? "healthy" : "developing"}. Further investment in healthcare, education, employment, and infrastructure can improve future HDI performance.`;
+  if (reportSummary) {
+    reportSummary.textContent = `The predicted HDI score is ${formatHdiScore(score)}, placing ${country} in the ${category} category. Life expectancy is ${inputs.life_expectancy >= 75 ? "strong" : inputs.life_expectancy >= 60 ? "stable" : "challenged"}, education shows ${inputs.mean_years_schooling >= 12 ? "good" : "room for improvement"}, and income remains ${inputs.gni_per_capita >= 20000 ? "healthy" : "developing"}. Further investment in healthcare, education, employment, and infrastructure can improve future HDI performance.`;
+  }
 }
 
-const gaugeNeedlePlugin = {
-  id: "gaugeNeedle",
-  afterDraw(chart) {
-    const { ctx, chartArea: { left, right, top, bottom } } = chart;
-    const dataset = chart.data.datasets[0];
-    const value = dataset.data[0];
-    const centerX = (left + right) / 2;
-    const centerY = (top + bottom) / 2 + 20;
-    const radius = Math.min((right - left), (bottom - top)) / 2.2;
-    const angle = -Math.PI + Math.PI * (value / 100);
-
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate(angle);
-    ctx.beginPath();
-    ctx.moveTo(0, 10);
-    ctx.lineTo(0, -radius + 10);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = dataset.backgroundColor[0] || "#fff";
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 10, 8, 0, Math.PI * 2);
-    ctx.fillStyle = dataset.backgroundColor[0] || "#fff";
-    ctx.fill();
-    ctx.restore();
-  },
-};
-
-function renderGaugeChart(score, category) {
-  if (!dashboardGaugeCanvas) return;
-  const gaugeScore = Math.round(score * 100);
-  const color = CATEGORY_COLORS[category] ? CATEGORY_COLORS[category].border : "#3b82f6";
-  state.chartInstances.dashboard.push(new Chart(dashboardGaugeCanvas, {
-    type: "doughnut",
-    data: {
-      labels: ["Score", "Remaining"],
-      datasets: [{
-        data: [gaugeScore, 100 - gaugeScore],
-        backgroundColor: [color, "rgba(255,255,255,0.08)"],
-        borderWidth: 0,
-      }],
-    },
-    options: {
-      responsive: true,
-      rotation: -Math.PI,
-      circumference: Math.PI,
-      cutout: "78%",
-      plugins: {
-        legend: { display: false },
-        tooltip: { enabled: false },
-      },
-    },
-    plugins: [gaugeNeedlePlugin],
-  }));
-
-  const gaugeText = document.getElementById("gaugeScoreText");
-  if (gaugeText) gaugeText.textContent = score.toFixed(3);
-}
-
-function renderHistory(filter = "") {
-  const normalizedFilter = filter.trim().toLowerCase();
-  const sortedHistory = [...state.history].sort((a, b) => {
-    const aTime = a.timestamp || 0;
-    const bTime = b.timestamp || 0;
-    return state.historySortAsc ? aTime - bTime : bTime - aTime;
-  });
-  const rows = sortedHistory
-    .filter(item => item.country.toLowerCase().includes(normalizedFilter) || item.category.toLowerCase().includes(normalizedFilter) || item.score.toFixed(3).includes(normalizedFilter))
-    .map((item, idx) => `
-      <tr>
-        <td>${item.country}</td>
-        <td>${item.score.toFixed(3)}</td>
-        <td>${item.category}</td>
-        <td>${item.date}</td>
-        <td>${item.time}</td>
-        <td><button type="button" class="btn btn-sm btn-outline-primary history-download" data-index="${idx}"><i class="bi bi-download"></i></button></td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger history-delete" data-index="${idx}"><i class="bi bi-trash"></i></button></td>
-      </tr>`)
-    .join("");
-  historyBody.innerHTML = rows || `<tr><td colspan="7" class="text-center text-muted">No history available.</td></tr>`;
-}
+// Gauge chart removed - no longer used in the redesigned dashboard
 
 function downloadHistoryEntry(index) {
   const entry = state.history[index];
@@ -401,12 +378,6 @@ function downloadHistoryEntry(index) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "HDI Report");
   XLSX.writeFile(wb, `HDI-history-${entry.country.replace(/\s+/g, "-")}.xlsx`);
-}
-
-function toggleHistorySort() {
-  state.historySortAsc = !state.historySortAsc;
-  historySortBtn.innerHTML = `<i class="bi bi-arrow-down-up me-1"></i>${state.historySortAsc ? "Oldest First" : "Newest First"}`;
-  renderHistory(historySearch.value || "");
 }
 
 function downloadExcel() {
@@ -454,21 +425,23 @@ function downloadPDF() {
 }
 
 function makeReportData() {
-  const category = document.getElementById("resultCategory").textContent;
+  const category = document.getElementById("resultCategory") ? document.getElementById("resultCategory").textContent : "Unknown";
   const countryLabel = resultCountryDisplay ? resultCountryDisplay.textContent.replace("Country:", "").trim() : "Unknown";
-  const inputs = Array.from(document.querySelectorAll("#inputSummary .summary-item")).map(item => `${item.querySelector(".summary-key").textContent}: ${item.querySelector(".summary-value").textContent}`);
-  const recommendations = Array.from(recommendationList.children).map(item => item.textContent);
-  const scenario = buildScenario(category, {
-    life_expectancy: Number(document.getElementById("life_expectancy").value),
-    mean_years_schooling: Number(document.getElementById("mean_years_schooling").value),
-    expected_years_schooling: Number(document.getElementById("expected_years_schooling").value),
-    gni_per_capita: Number(document.getElementById("gni_per_capita").value),
-  });
-  const score = Number(hdiScoreValue.textContent) || estimateHdiScore({
-    life_expectancy: Number(document.getElementById("life_expectancy").value),
-    mean_years_schooling: Number(document.getElementById("mean_years_schooling").value),
-    expected_years_schooling: Number(document.getElementById("expected_years_schooling").value),
-    gni_per_capita: Number(document.getElementById("gni_per_capita").value),
+  const inputs = [];
+  const inputSummaryEl = document.getElementById("inputSummary");
+  if (inputSummaryEl) {
+    inputs.push(...Array.from(inputSummaryEl.querySelectorAll(".summary-item")).map(item => {
+      const keyEl = item.querySelector(".summary-key");
+      const valueEl = item.querySelector(".summary-value");
+      return keyEl && valueEl ? `${keyEl.textContent}: ${valueEl.textContent}` : "";
+    }).filter(Boolean));
+  }
+  const recommendations = recommendationList ? Array.from(recommendationList.children).map(item => item.textContent) : [];
+  const score = hdiScoreValue && hdiScoreValue.textContent ? Number(hdiScoreValue.textContent) : estimateHdiScore({
+    life_expectancy: Number(document.getElementById("life_expectancy")?.value || 0),
+    mean_years_schooling: Number(document.getElementById("mean_years_schooling")?.value || 0),
+    expected_years_schooling: Number(document.getElementById("expected_years_schooling")?.value || 0),
+    gni_per_capita: Number(document.getElementById("gni_per_capita")?.value || 0),
   });
   return {
     country: countryLabel,
@@ -476,8 +449,6 @@ function makeReportData() {
     score,
     inputs,
     recommendations,
-    scenario,
-    aiSummary: reportSummary ? reportSummary.textContent : "",
     date: new Date(),
   };
 }
@@ -501,7 +472,8 @@ function downloadCSV() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `HDI-report-${report.country.replace(/\s+/g, "-")}.csv`;
+  link.download = 
+  `HDI-report-${report.country.replace(/\s+/g, "-")}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -530,12 +502,12 @@ function createToast(message, type = "success") {
 }
 
 function showFormError(msg) {
-  formErrorMsg.textContent = msg;
-  formError.classList.remove("d-none");
+  if (formErrorMsg) formErrorMsg.textContent = msg;
+  if (formError) formError.classList.remove("d-none");
 }
 
 function hideFormError() {
-  formError.classList.add("d-none");
+  if (formError) formError.classList.add("d-none");
 }
 
 function getIndicatorStatus(fieldId, value) {
@@ -566,6 +538,7 @@ function getIndicatorStatus(fieldId, value) {
 function updateFieldStatus(field) {
   const statusEl = document.getElementById(`status_${field.id}`);
   const input = document.getElementById(field.id);
+  if (!statusEl || !input) return;
   const value = input.value.trim();
 
   if (!value) {
@@ -582,6 +555,7 @@ function updateFieldStatus(field) {
 function validateField(field) {
   const input = document.getElementById(field.id);
   const errEl = document.getElementById(`err_${field.id}`);
+  if (!input || !errEl) return false;
   const val   = input.value.trim();
 
   input.classList.remove("is-invalid");
@@ -620,12 +594,13 @@ function validateAll() {
 function validateCountry() {
   const value = countrySearch.value.trim();
   const errEl = document.getElementById("err_country");
+  if (!errEl) return false;
   errEl.classList.remove("show");
   errEl.textContent = "";
-  countrySearch.classList.remove("is-invalid");
+  if (countrySearch) countrySearch.classList.remove("is-invalid");
 
   if (!value) {
-    countrySearch.classList.add("is-invalid");
+    if (countrySearch) countrySearch.classList.add("is-invalid");
     errEl.textContent = "❌ Country is required.";
     errEl.classList.add("show");
     return false;
@@ -633,24 +608,25 @@ function validateCountry() {
 
   const match = COUNTRIES.find(country => country.name.toLowerCase() === value.toLowerCase());
   if (!match) {
-    countrySearch.classList.add("is-invalid");
+    if (countrySearch) countrySearch.classList.add("is-invalid");
     errEl.textContent = "❌ Please select a valid country from the list.";
     errEl.classList.add("show");
     return false;
   }
 
-  countryInput.value = match.name;
-  countrySearch.classList.remove("is-invalid");
+  if (countryInput) countryInput.value = match.name;
+  if (countrySearch) countrySearch.classList.remove("is-invalid");
   return true;
 }
 
 function setSelectedCountry(name, code) {
-  countrySearch.value = name;
-  countryInput.value = name;
-  countryDropdown.classList.add("d-none");
+  if (countrySearch) countrySearch.value = name;
+  if (countryInput) countryInput.value = name;
+  if (countryDropdown) countryDropdown.classList.add("d-none");
 }
 
 function updateCountryDropdown(items) {
+  if (!countryDropdown) return;
   if (!items.length) {
     countryDropdown.innerHTML = `<div class="country-empty">No matches found.</div>`;
     countryDropdown.classList.remove("d-none");
@@ -702,42 +678,44 @@ function animateCounters() {
 }
 
 function setLoading(loading) {
-  predictBtn.disabled = loading;
-  btnText.classList.toggle("d-none", loading);
-  btnLoading.classList.toggle("d-none", !loading);
-  loadingState.classList.toggle("d-none", !loading);
+  if (predictBtn) predictBtn.disabled = loading;
+  if (btnText) btnText.classList.toggle("d-none", loading);
+  if (btnLoading) btnLoading.classList.toggle("d-none", !loading);
+  if (loadingState) loadingState.classList.toggle("d-none", !loading);
 
   if (loading) {
     state.loadingProgress = 0;
-    loadingProgress.style.width = "0%";
-    loadingPercent.textContent = "0%";
-    loadingStepText.textContent = "Analyzing Health...";
+    if (loadingProgress) loadingProgress.style.width = "0%";
+    if (loadingPercent) loadingPercent.textContent = "0%";
+    if (loadingStepText) loadingStepText.textContent = "Analyzing Health...";
 
     state.loadingTimer = setInterval(() => {
       state.loadingProgress = clamp(state.loadingProgress + Math.random() * 8 + 2, 0, 97);
-      loadingProgress.style.width = `${state.loadingProgress}%`;
-      loadingPercent.textContent = `${Math.round(state.loadingProgress)}%`;
+      if (loadingProgress) loadingProgress.style.width = `${state.loadingProgress}%`;
+      if (loadingPercent) loadingPercent.textContent = `${Math.round(state.loadingProgress)}%`;
 
-      if (state.loadingProgress < 22) loadingStepText.textContent = "Analyzing Health...";
-      else if (state.loadingProgress < 44) loadingStepText.textContent = "Analyzing Education...";
-      else if (state.loadingProgress < 66) loadingStepText.textContent = "Analyzing Income...";
-      else if (state.loadingProgress < 84) loadingStepText.textContent = "Running Machine Learning Model...";
-      else loadingStepText.textContent = "Generating Result...";
+      if (loadingStepText) {
+        if (state.loadingProgress < 22) loadingStepText.textContent = "Analyzing Health...";
+        else if (state.loadingProgress < 44) loadingStepText.textContent = "Analyzing Education...";
+        else if (state.loadingProgress < 66) loadingStepText.textContent = "Analyzing Income...";
+        else if (state.loadingProgress < 84) loadingStepText.textContent = "Running Machine Learning Model...";
+        else loadingStepText.textContent = "Generating Result...";
+      }
     }, 120);
   } else {
     clearInterval(state.loadingTimer);
-    loadingProgress.style.width = "100%";
-    loadingPercent.textContent = "100%";
-    loadingStepText.textContent = "Completed.";
-    setTimeout(() => loadingState.classList.add("d-none"), 320);
+    if (loadingProgress) loadingProgress.style.width = "100%";
+    if (loadingPercent) loadingPercent.textContent = "100%";
+    if (loadingStepText) loadingStepText.textContent = "Completed.";
+    setTimeout(() => { if (loadingState) loadingState.classList.add("d-none"); }, 320);
   }
 }
 
 function renderConfidenceBars(confidence) {
-  const container = document.getElementById("confidenceBars");
+  if (!confidenceBars) return;
   const categories = ["Very High", "High", "Medium", "Low"];
   const colors = { "Very High": "#10b981", "High": "#3b82f6", "Medium": "#f59e0b", "Low": "#ef4444" };
-  container.innerHTML = categories.map(category => {
+  confidenceBars.innerHTML = categories.map(category => {
     const value = confidence[category] ?? 0;
     return `
       <div class="conf-item">
@@ -746,7 +724,7 @@ function renderConfidenceBars(confidence) {
       </div>`;
   }).join("");
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    container.querySelectorAll(".conf-bar-fill").forEach(bar => bar.style.width = `${bar.dataset.value}%`);
+    confidenceBars.querySelectorAll(".conf-bar-fill").forEach(bar => bar.style.width = `${bar.dataset.value}%`);
   }));
 }
 
@@ -758,8 +736,8 @@ function renderInputSummary(inputs) {
     expected_years_schooling: { label: "Expected Schooling", unit: "yrs" },
     gni_per_capita:           { label: "GNI Per Capita", unit: "$" },
   };
-  const container = document.getElementById("inputSummary");
-  container.innerHTML = Object.entries(inputs).map(([key, value]) => {
+  if (!inputSummary) return;
+  inputSummary.innerHTML = Object.entries(inputs).map(([key, value]) => {
     const meta = labels[key];
     if (!meta) return "";
     const display = key === "gni_per_capita" ? formatMoney(value) : `${value}${meta.unit ? ` ${meta.unit}` : ""}`;
@@ -808,7 +786,9 @@ function createRecommendationList(category, inputs) {
 
 function renderRecommendations(category, inputs) {
   const recommendations = createRecommendationList(category, inputs);
-  recommendationList.innerHTML = recommendations.map(item => `<li>${item}</li>`).join("");
+  if (recommendationList) {
+    recommendationList.innerHTML = recommendations.map(item => `<li>${item}</li>`).join("");
+  }
 }
 
 function destroyDashboardCharts() {
@@ -827,6 +807,7 @@ function fadeInElement(el) {
 }
 
 function animateNumber(element, value, suffix = "") {
+  if (!element) return;
   const numericValue = Number(value) || 0;
   let current = 0;
   const duration = 900;
@@ -875,10 +856,15 @@ function updateDashboardStats(inputs, category) {
   const incomeScore = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
   const statusText = category;
 
-  animateNumber(document.getElementById("healthScoreVal"), Math.round(healthScore));
-  animateNumber(document.getElementById("educationScoreVal"), Math.round(educationScore));
-  animateNumber(document.getElementById("incomeScoreVal"), Math.round(incomeScore));
-  document.getElementById("developmentStatusVal").textContent = statusText;
+  const healthScoreEl = document.getElementById("healthScoreVal");
+  const educationScoreEl = document.getElementById("educationScoreVal");
+  const incomeScoreEl = document.getElementById("incomeScoreVal");
+  const developmentStatusEl = document.getElementById("developmentStatusVal");
+
+  if (healthScoreEl) animateNumber(healthScoreEl, Math.round(healthScore));
+  if (educationScoreEl) animateNumber(educationScoreEl, Math.round(educationScore));
+  if (incomeScoreEl) animateNumber(incomeScoreEl, Math.round(incomeScore));
+  if (developmentStatusEl) developmentStatusEl.textContent = statusText;
 }
 
 function generateInsights(inputs, category) {
@@ -889,17 +875,25 @@ function generateInsights(inputs, category) {
   const categoryInsight = `Country belongs to ${category} HDI category.`;
   insights.push(healthInsight, educationInsight, incomeInsight, categoryInsight);
   const list = document.getElementById("dashboardInsightsList");
-  list.innerHTML = insights.map(item => `<li>${item}</li>`).join("");
+  if (list) list.innerHTML = insights.map(item => `<li>${item}</li>`).join("");
 }
 
 function updateDashboardSummary(inputs, category, country) {
-  document.getElementById("summaryCountry").textContent = country;
-  document.getElementById("summaryCategory").textContent = category;
-  document.getElementById("predictionTime").textContent = new Date().toLocaleTimeString();
-  document.getElementById("summaryHealth").textContent = `${inputs.life_expectancy} yrs`;
-  document.getElementById("summaryEducation").textContent = `${inputs.mean_years_schooling} / ${inputs.expected_years_schooling} yrs`;
-  document.getElementById("summaryIncome").textContent = formatMoney(inputs.gni_per_capita);
-  document.getElementById("summaryStatus").textContent = category;
+  const summaryCountry = document.getElementById("summaryCountry");
+  const summaryCategory = document.getElementById("summaryCategory");
+  const predictionTime = document.getElementById("predictionTime");
+  const summaryHealth = document.getElementById("summaryHealth");
+  const summaryEducation = document.getElementById("summaryEducation");
+  const summaryIncome = document.getElementById("summaryIncome");
+  const summaryStatus = document.getElementById("summaryStatus");
+
+  if (summaryCountry) summaryCountry.textContent = country;
+  if (summaryCategory) summaryCategory.textContent = category;
+  if (predictionTime) predictionTime.textContent = new Date().toLocaleTimeString();
+  if (summaryHealth) summaryHealth.textContent = `${inputs.life_expectancy} yrs`;
+  if (summaryEducation) summaryEducation.textContent = `${inputs.mean_years_schooling} / ${inputs.expected_years_schooling} yrs`;
+  if (summaryIncome) summaryIncome.textContent = formatMoney(inputs.gni_per_capita);
+  if (summaryStatus) summaryStatus.textContent = category;
 }
 
 function ensureDashboardVisible() {
@@ -909,237 +903,540 @@ function ensureDashboardVisible() {
   fadeInElement(dashboard);
 }
 
-function renderDashboardCharts(inputs, category) {
-  destroyDashboardCharts();
-  const estimatedScore = estimateHdiScore(inputs);
-  const health = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
-  const meanSchooling = clamp(inputs.mean_years_schooling / 20 * 100, 0, 100);
-  const expectedSchooling = clamp(inputs.expected_years_schooling / 25 * 100, 0, 100);
-  const income = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
-  const education = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
-  const categoryValue = { "Very High": 92, "High": 76, "Medium": 58, "Low": 34 }[category] || 60;
-
-  renderGaugeChart(estimatedScore, category);
-
-  state.chartInstances.dashboard.push(new Chart(document.getElementById("dashboardBarChart"), {
-    type: "bar",
-    data: {
-      labels: ["Life Expectancy", "Mean Schooling", "Expected Schooling", "Income"],
-      datasets: [{
-        label: "Indicator Score",
-        data: [health, meanSchooling, expectedSchooling, income],
-        backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
-        borderRadius: 18,
-        borderSkipped: false,
-      }],
-    },
-    options: {
-      responsive: true,
-      animation: { duration: 900, easing: "easeOutQuart" },
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: "#94a3b8" } },
-        y: { beginAtZero: true, max: 100, ticks: { color: "#94a3b8", callback: value => `${value}%` }, grid: { color: "rgba(148,163,184,0.15)" } },
-      },
-    },
-  }));
-
-  state.chartInstances.dashboard.push(new Chart(document.getElementById("dashboardRadarChart"), {
-    type: "radar",
-    data: {
-      labels: ["Health", "Education", "Income", "Prediction Strength"],
-      datasets: [{
-        label: "Development Profile",
-        data: [health, education, income, categoryValue],
-        backgroundColor: "rgba(59,130,246,0.2)",
-        borderColor: "#3b82f6",
-        pointBackgroundColor: "#3b82f6",
-        pointBorderColor: "#fff",
-        fill: true,
-      }],
-    },
-    options: {
-      responsive: true,
-      animation: { duration: 900, easing: "easeOutQuart" },
-      scales: {
-        r: {
-          angleLines: { color: "rgba(148,163,184,0.2)" },
-          grid: { color: "rgba(148,163,184,0.2)" },
-          suggestedMin: 0,
-          suggestedMax: 100,
-          pointLabels: { color: "#cbd5e1" },
-          ticks: { display: false },
-        },
-      },
-      plugins: { legend: { display: false } },
-    },
-  }));
-
-  const total = health + education + income;
-  const healthPart = total ? Math.round((health / total) * 100) : 0;
-  const educationPart = total ? Math.round((education / total) * 100) : 0;
-  const incomePart = total ? 100 - healthPart - educationPart : 0;
-
-  state.chartInstances.dashboard.push(new Chart(document.getElementById("dashboardDoughnutChart"), {
-    type: "doughnut",
-    data: {
-      labels: ["Health", "Education", "Income"],
-      datasets: [{
-        data: [healthPart, educationPart, incomePart],
-        backgroundColor: ["#10b981", "#3b82f6", "#f59e0b"],
-        borderWidth: 0,
-      }],
-    },
-    options: {
-      responsive: true,
-      animation: { duration: 900, easing: "easeOutQuart" },
-      plugins: { legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12 } } },
-      cutout: "60%",
-    },
-  }));
-}
-
-function finalizeDashboard(inputs, category, country) {
-  updateDashboardSummary(inputs, category, country);
-  updateDashboardStats(inputs, category);
-  renderProgressMetrics(inputs);
-  generateInsights(inputs, category);
-  renderDashboardCharts(inputs, category);
-  ensureDashboardVisible();
-}
-
-function loadHistory() {
-  try {
-    const stored = JSON.parse(localStorage.getItem("hdiPredictionHistory") || "[]");
-    if (Array.isArray(stored)) state.history = stored;
-  } catch {
-    state.history = [];
+// ── SECTION 3: Country HDI Comparison ───────────────────────────────────────────
+function renderCountryComparison(selectedCountry, predictedScore) {
+  const comparisonCountryName = document.getElementById("comparisonCountryName");
+  const comparisonChart = document.getElementById("comparisonChart");
+  
+  if (!comparisonChart) return;
+  
+  // Set the selected country name
+  if (comparisonCountryName) {
+    comparisonCountryName.textContent = selectedCountry;
   }
-  renderHistory();
-}
-
-function clearHistory() {
-  state.history = [];
-  localStorage.removeItem("hdiPredictionHistory");
-  renderHistory();
-  createToast("History cleared successfully.");
-}
-
-function addHistoryEntry(entry) {
-  entry.timestamp = Date.now();
-  state.history.unshift(entry);
-  localStorage.setItem("hdiPredictionHistory", JSON.stringify(state.history));
-  renderHistory(historySearch.value || "");
-}
-
-function removeHistoryEntry(index) {
-  state.history.splice(index, 1);
-  localStorage.setItem("hdiPredictionHistory", JSON.stringify(state.history));
-  renderHistory();
-  createToast("History entry removed.");
-}
-
-function printReport() {
-  const report = makeReportData();
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    createToast("Unable to open print window.", "danger");
-    return;
+  
+  // Get comparison countries (top HDI countries)
+  const comparisonCountries = [
+    { name: "United States", score: 0.921 },
+    { name: "Germany", score: 0.902 },
+    { name: "Japan", score: 0.890 },
+    { name: "China", score: 0.768 },
+    { name: "India", score: 0.786 },
+  ];
+  
+  // Add the selected country to the comparison
+  const allCountries = [...comparisonCountries];
+  if (selectedCountry && !allCountries.find(c => c.name === selectedCountry)) {
+    allCountries.push({ name: selectedCountry, score: predictedScore });
   }
-  printWindow.document.write(`
-    <html><head><title>HDI Report</title><style>
-      body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-      h1 { margin-bottom: 18px; }
-      h2 { margin-top: 24px; }
-      ul { margin-top: 0; }
-    </style></head><body>
-      <h1>HDI Prediction Report</h1>
-      <p><strong>Country:</strong> ${report.country}</p>
-      <p><strong>Prediction:</strong> ${report.category}</p>
-      <p><strong>Date:</strong> ${report.date.toLocaleDateString()} ${report.date.toLocaleTimeString()}</p>
-      <h2>Indicators</h2>
-      <ul>${report.inputs.map(line => `<li>${line}</li>`).join("")}</ul>
-      <h2>Recommendations</h2>
-      <ul>${report.recommendations.map(line => `<li>${line}</li>`).join("")}</ul>
-    </body></html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+  
+  // Sort by score descending
+  allCountries.sort((a, b) => b.score - a.score);
+  
+  comparisonChart.innerHTML = allCountries.map((country, index) => {
+    const isHighlighted = country.name === selectedCountry;
+    const barWidth = (country.score / 1) * 100;
+    return `
+      <div class="comparison-bar">
+        <div class="comparison-bar-label">${country.name}</div>
+        <div class="comparison-bar-container">
+          <div class="comparison-bar-fill" style="width: 0%; background: ${isHighlighted ? 'var(--primary)' : 'rgba(99,102,241,0.3)'}" data-width="${barWidth}%">
+            <span class="comparison-bar-value">${country.score.toFixed(3)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+  
+  // Animate bars
+  requestAnimationFrame(() => {
+    comparisonChart.querySelectorAll(".comparison-bar-fill").forEach(bar => {
+      bar.style.width = bar.dataset.width;
+    });
+  });
 }
 
-function copyResult() {
-  const report = makeReportData();
-  const text = `HDI Prediction Result\nCountry: ${report.country}\nPrediction: ${report.category}\n${report.inputs.join("\n")}\nRecommendations:\n${report.recommendations.map(line => `- ${line}`).join("\n")}`;
-  navigator.clipboard.writeText(text).then(() => createToast("Result copied to clipboard.")).catch(() => createToast("Unable to copy result.", "danger"));
+// ── SECTION 5: Prediction Confidence ───────────────────────────────────────────
+function renderPredictionConfidence(confidence) {
+  const confidenceBarFill = document.getElementById("confidenceBarFill");
+  const confidencePercentage = document.getElementById("confidencePercentage");
+  
+  if (!confidenceBarFill || !confidencePercentage) return;
+  
+  // Get the max confidence value
+  const maxConfidence = Math.max(...Object.values(confidence));
+  const percentage = Math.round(maxConfidence);
+  
+  // Animate the bar
+  setTimeout(() => {
+    confidenceBarFill.style.width = `${percentage}%`;
+    confidencePercentage.textContent = `${percentage}%`;
+  }, 100);
 }
 
-function copyLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => createToast("Link copied successfully.")).catch(() => createToast("Unable to copy link.", "danger"));
+// ── SECTION 6: Feature Importance ─────────────────────────────────────────────
+function renderFeatureImportance(inputs) {
+  const featureImportanceBars = document.getElementById("featureImportanceBars");
+  
+  if (!featureImportanceBars) return;
+  
+  // Calculate feature importance based on input values
+  const features = [
+    { label: "Life Expectancy", value: clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100), color: "#10b981" },
+    { label: "Education", value: clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100), color: "#3b82f6" },
+    { label: "Expected Schooling", value: clamp(inputs.expected_years_schooling / 25 * 100, 0, 100), color: "#f59e0b" },
+    { label: "Income", value: clamp((Math.log(inputs.gni_per_capita) - Math.log(100)) / (Math.log(150000) - Math.log(100)) * 100, 0, 100), color: "#8b5cf6" },
+  ];
+  
+  featureImportanceBars.innerHTML = features.map(feature => `
+    <div class="feature-importance-bar">
+      <div class="feature-importance-label">
+        <span>${feature.label}</span>
+        <span class="feature-importance-value">${Math.round(feature.value)}%</span>
+      </div>
+      <div class="feature-importance-bar-bg">
+        <div class="feature-importance-bar-fill" style="width: 0%; background: ${feature.color}" data-value="${feature.value}"></div>
+      </div>
+    </div>
+  `).join("");
+  
+  // Animate bars
+  requestAnimationFrame(() => {
+    featureImportanceBars.querySelectorAll(".feature-importance-bar-fill").forEach(bar => {
+      bar.style.width = `${bar.dataset.value}%`;
+    });
+  });
 }
 
-function shareWhatsApp() {
-  const text = encodeURIComponent(`${document.getElementById("resultCategory").textContent} HDI prediction for ${countryInput.value || countrySearch.value}. ${window.location.href}`);
-  window.open(`https://wa.me/?text=${text}`, "_blank");
+// ── SECTION 7: Indicator Status ─────────────────────────────────────────────────
+function renderIndicatorStatus(inputs) {
+  const indicatorStatusGrid = document.getElementById("indicatorStatusGrid");
+  
+  if (!indicatorStatusGrid) return;
+  
+  const indicators = [
+    { id: "life_expectancy", label: "Health", icon: "bi-heart-pulse-fill" },
+    { id: "mean_years_schooling", label: "Education", icon: "bi-mortarboard-fill" },
+    { id: "gni_per_capita", label: "Income", icon: "bi-cash-stack" },
+  ];
+  
+  indicatorStatusGrid.innerHTML = indicators.map(indicator => {
+    const status = getIndicatorStatus(indicator.id, inputs[indicator.id]);
+    return `
+      <div class="col-lg-4 col-md-4 col-12">
+        <div class="indicator-status-item">
+          <div class="indicator-status-icon"><i class="bi ${indicator.icon}"></i></div>
+          <div class="indicator-status-label">${indicator.label}</div>
+          <div class="indicator-status-value">${status.label}</div>
+          <span class="indicator-status-badge ${status.color}">${status.icon}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
-function shareLinkedIn() {
-  const url = encodeURIComponent(window.location.href);
-  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, "_blank");
+// ── SECTION 8: AI Development Report ────────────────────────────────────────────
+function renderAiDevelopmentReport(category, inputs) {
+  const aiReportContent = document.getElementById("aiReportContent");
+  
+  if (!aiReportContent) return;
+  
+  const healthAnalysis = inputs.life_expectancy >= 75 ? "The country demonstrates excellent health outcomes with high life expectancy." : 
+                         inputs.life_expectancy >= 60 ? "Health indicators are stable but have room for improvement." : 
+                         "Healthcare system needs significant investment and improvement.";
+  
+  const educationAnalysis = (inputs.mean_years_schooling + inputs.expected_years_schooling) / 2 >= 12 ? 
+                            "Education system is strong with good enrollment and literacy rates." : 
+                            "Education sector requires focused investment in infrastructure and access.";
+  
+  const incomeAnalysis = inputs.gni_per_capita >= 20000 ? 
+                         "Income levels are high, supporting strong human development." : 
+                         "Income generation needs to be strengthened for better development outcomes.";
+  
+  const overallConclusion = `Based on the analysis, ${category} HDI category is appropriate. The country shows ${inputs.life_expectancy >= 60 ? "moderate" : "developing"} health, ${((inputs.mean_years_schooling + inputs.expected_years_schooling) / 2) >= 10 ? "adequate" : "limited"} education, and ${inputs.gni_per_capita >= 10000 ? "growing" : "emerging"} income levels.`;
+  
+  const futureOutlook = category === "Very High" ? "Continue maintaining current development trajectory with focus on innovation." :
+                        category === "High" ? "Sustain growth while addressing remaining gaps in education and income." :
+                        category === "Medium" ? "Accelerate development through targeted investments in key sectors." :
+                        "Urgent intervention needed across all development dimensions.";
+  
+  aiReportContent.innerHTML = `
+    <div class="ai-report-item">
+      <div class="ai-report-label">Health Analysis</div>
+      <div class="ai-report-value">${healthAnalysis}</div>
+    </div>
+    <div class="ai-report-item">
+      <div class="ai-report-label">Education Analysis</div>
+      <div class="ai-report-value">${educationAnalysis}</div>
+    </div>
+    <div class="ai-report-item">
+      <div class="ai-report-label">Income Analysis</div>
+      <div class="ai-report-value">${incomeAnalysis}</div>
+    </div>
+    <div class="ai-report-item">
+      <div class="ai-report-label">Overall Conclusion</div>
+      <div class="ai-report-value">${overallConclusion}</div>
+    </div>
+    <div class="ai-report-item">
+      <div class="ai-report-label">Future Outlook</div>
+      <div class="ai-report-value">${futureOutlook}</div>
+    </div>
+  `;
 }
 
-function shareEmail() {
-  const subject = encodeURIComponent("HDI Prediction Result");
-  const body = encodeURIComponent(`Prediction: ${document.getElementById("resultCategory").textContent}\nCountry: ${countryInput.value || countrySearch.value}\n${makeReportData().inputs.join("\n")}`);
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+// ── SECTION 9: Risk Level ─────────────────────────────────────────────────────────
+function renderRiskLevel(category) {
+  const riskBadge = document.getElementById("riskBadge");
+  
+  if (!riskBadge) return;
+  
+  let riskText = "Low Risk";
+  let riskClass = "low";
+  
+  if (category === "Low") {
+    riskText = "High Risk";
+    riskClass = "high";
+  } else if (category === "Medium") {
+    riskText = "Moderate Risk";
+    riskClass = "moderate";
+  }
+  
+  riskBadge.textContent = riskText;
+  riskBadge.className = `risk-badge ${riskClass}`;
+}
+
+// ── SECTION 10: Development Score ─────────────────────────────────────────────────
+function renderDevelopmentScore(inputs, category) {
+  const scoreFill = document.getElementById("scoreFill");
+  const scoreText = document.getElementById("scoreText");
+  const scoreStars = document.getElementById("scoreStars");
+  
+  if (!scoreFill || !scoreText || !scoreStars) return;
+  
+  // Calculate overall development score
+  const healthScore = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
+  const educationScore = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
+  const incomeScore = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
+  const overallScore = Math.round((healthScore + educationScore + incomeScore) / 3);
+  
+  // Animate circular progress
+  const circumference = 283;
+  const offset = circumference - (overallScore / 100) * circumference;
+  
+  setTimeout(() => {
+    scoreFill.style.strokeDashoffset = offset;
+    scoreText.textContent = `${overallScore}/100`;
+  }, 100);
+  
+  // Render stars
+  const starCount = Math.min(5, Math.max(1, Math.floor(overallScore / 20)));
+  scoreStars.innerHTML = Array(5).fill(0).map((_, i) => 
+    `<i class="bi bi-star${i < starCount ? '-fill' : ''} star"></i>`
+  ).join("");
+}
+
+// ── SECTION 11: Prediction Timeline ───────────────────────────────────────────────
+function renderPredictionTimeline() {
+  const timelineGrid = document.getElementById("timelineGrid");
+  
+  if (!timelineGrid) return;
+  
+  const now = new Date();
+  
+  timelineGrid.innerHTML = `
+    <div class="col-lg-3 col-md-6 col-12">
+      <div class="timeline-item">
+        <div class="timeline-item-label">Prediction Date</div>
+        <div class="timeline-item-value">${now.toLocaleDateString()}</div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 col-12">
+      <div class="timeline-item">
+        <div class="timeline-item-label">Prediction Time</div>
+        <div class="timeline-item-value">${now.toLocaleTimeString()}</div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 col-12">
+      <div class="timeline-item">
+        <div class="timeline-item-label">Model Used</div>
+        <div class="timeline-item-value">Random Forest</div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 col-12">
+      <div class="timeline-item">
+        <div class="timeline-item-label">Status</div>
+        <div class="timeline-item-value">Success</div>
+      </div>
+    </div>
+  `;
+}
+
+// ── SECTION 12: Estimated Development Level ───────────────────────────────────────
+function renderEstimatedLevel(category) {
+  const estimatedLevelDisplay = document.getElementById("estimatedLevelDisplay");
+  
+  if (!estimatedLevelDisplay) return;
+  
+  let levelText = "Top 25%";
+  let levelClass = "top-25";
+  let levelDesc = "Excellent Performance";
+  
+  if (category === "Medium") {
+    levelText = "Top 50%";
+    levelClass = "top-50";
+    levelDesc = "Developing Nation";
+  } else if (category === "Low") {
+    levelText = "Needs Improvement";
+    levelClass = "needs-improvement";
+    levelDesc = "Significant development challenges";
+  } else if (category === "High") {
+    levelText = "Top 25%";
+    levelClass = "top-25";
+    levelDesc = "Strong Performance";
+  }
+  
+  estimatedLevelDisplay.innerHTML = `
+    <span class="estimated-level-badge ${levelClass}">${levelText}</span>
+    <div class="estimated-level-desc">${levelDesc} (Estimated Level)</div>
+  `;
+}
+
+// ── SECTION 13: Improvement Needed ───────────────────────────────────────────────
+function renderImprovementNeeded(inputs) {
+  const improvementBars = document.getElementById("improvementBars");
+  
+  if (!improvementBars) return;
+  
+  const improvements = [
+    { label: "Healthcare", value: inputs.life_expectancy < 75 ? clamp(100 - (inputs.life_expectancy - 20) / 70 * 100, 0, 100) : 20, color: "#10b981" },
+    { label: "Education", value: (inputs.mean_years_schooling + inputs.expected_years_schooling) / 2 < 12 ? clamp(100 - ((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100) : 15, color: "#3b82f6" },
+    { label: "Income", value: inputs.gni_per_capita < 20000 ? clamp(100 - (Math.log(inputs.gni_per_capita) - Math.log(100)) / (Math.log(150000) - Math.log(100)) * 100, 0, 100) : 10, color: "#f59e0b" },
+  ];
+  
+  improvementBars.innerHTML = improvements.map(improvement => `
+    <div class="improvement-bar">
+      <div class="improvement-bar-label">
+        <span>${improvement.label}</span>
+        <span class="improvement-bar-value">${Math.round(improvement.value)}%</span>
+      </div>
+      <div class="improvement-bar-bg">
+        <div class="improvement-bar-fill" style="width: 0%; background: ${improvement.color}" data-value="${improvement.value}"></div>
+      </div>
+    </div>
+  `).join("");
+  
+  // Animate bars
+  requestAnimationFrame(() => {
+    improvementBars.querySelectorAll(".improvement-bar-fill").forEach(bar => {
+      bar.style.width = `${bar.dataset.value}%`;
+    });
+  });
+}
+
+// ── SECTION 14: Goal Achievement ──────────────────────────────────────────────────
+function renderGoalAchievement(category) {
+  const goalContent = document.getElementById("goalContent");
+  
+  if (!goalContent) return;
+  
+  const targetCategory = "Very High";
+  const currentCategory = category;
+  
+  // Calculate progress based on category
+  const categoryProgress = {
+    "Very High": 100,
+    "High": 75,
+    "Medium": 50,
+    "Low": 25
+  };
+  
+  const progress = categoryProgress[category] || 0;
+  
+  goalContent.innerHTML = `
+    <div class="goal-row">
+      <span class="goal-label">Target</span>
+      <span class="goal-value">Very High HDI</span>
+    </div>
+    <div class="goal-row">
+      <span class="goal-label">Current</span>
+      <span class="goal-value">${currentCategory} HDI</span>
+    </div>
+    <div class="goal-progress-container">
+      <div class="goal-progress-bg">
+        <div class="goal-progress-fill" style="width: 0%" data-value="${progress}%"></div>
+      </div>
+    </div>
+  `;
+  
+  // Animate progress bar
+  requestAnimationFrame(() => {
+    const progressBar = goalContent.querySelector(".goal-progress-fill");
+    if (progressBar) {
+      progressBar.style.width = progressBar.dataset.value;
+    }
+  });
+}
+
+// ── SECTION 16: Strengths and Weaknesses ──────────────────────────────────────────
+function renderStrengthsWeaknesses(inputs, category) {
+  const strengthsList = document.getElementById("strengthsList");
+  const weaknessesList = document.getElementById("weaknessesList");
+  
+  if (!strengthsList || !weaknessesList) return;
+  
+  const strengths = [];
+  const weaknesses = [];
+  
+  if (inputs.life_expectancy >= 70) strengths.push("Good Healthcare System");
+  else weaknesses.push("Healthcare needs improvement");
+  
+  if (inputs.mean_years_schooling >= 10) strengths.push("High Literacy Rate");
+  else weaknesses.push("Education access needs improvement");
+  
+  if (inputs.expected_years_schooling >= 12) strengths.push("Strong Education Outlook");
+  else weaknesses.push("School enrollment needs attention");
+  
+  if (inputs.gni_per_capita >= 15000) strengths.push("Strong Economy");
+  else weaknesses.push("Income growth needed");
+  
+  if (category === "Very High") strengths.push("Excellent Development Index");
+  if (category === "Low") weaknesses.push("Overall development intervention required");
+  
+  strengthsList.innerHTML = strengths.length ? strengths.map(s => `<li>${s}</li>`).join("") : `<li>No significant strengths identified.</li>`;
+  weaknessesList.innerHTML = weaknesses.length ? weaknesses.map(w => `<li>${w}</li>`).join("") : `<li>No immediate weaknesses identified.</li>`;
+}
+
+// ── SECTION 17: Recommendations ───────────────────────────────────────────────────
+function renderRecommendationCards(recommendations) {
+  const container = document.getElementById("recommendationCards");
+  if (!container) return;
+  
+  const icons = ["bi-heart-pulse-fill", "bi-mortarboard-fill", "bi-cash-stack", "bi-building-fill", "bi-lightbulb-fill"];
+  
+  container.innerHTML = recommendations.map((rec, index) => `
+    <div class="col-lg-4 col-md-6 col-12">
+      <div class="recommendation-card h-100">
+        <div class="d-flex gap-3">
+          <div class="recommendation-card-icon">
+            <i class="${icons[index % icons.length]}"></i>
+          </div>
+          <div class="recommendation-card-content">
+            <div class="recommendation-card-title">Recommendation ${index + 1}</div>
+            <div class="recommendation-card-text">${rec}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function updateAnalyticsProgress(inputs) {
+  const healthScore = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
+  const educationScore = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
+  const incomeScore = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
+  
+  // Update progress bars in analytics cards
+  document.querySelectorAll(".analytics-progress .progress-meter-fill").forEach((bar, index) => {
+    const values = [healthScore, educationScore, incomeScore, 0];
+    bar.style.width = `${values[index] || 0}%`;
+  });
 }
 
 function renderResult(data) {
   const colors = CATEGORY_COLORS[data.category] || CATEGORY_COLORS["Medium"];
-  document.getElementById("resultIcon").className = `bi ${data.icon}`;
-  document.getElementById("resultCategory").textContent = data.category;
+  const resultIcon = document.getElementById("resultIcon");
+  const resultCategory = document.getElementById("resultCategory");
+  const predictionResultCard = document.getElementById("predictionResultCard");
+  
+  // Format category as "High Human Development" instead of just "High"
+  const categoryDisplay = {
+    "Very High": "Very High Human Development",
+    "High": "High Human Development",
+    "Medium": "Medium Human Development",
+    "Low": "Low Human Development"
+  }[data.category] || data.category;
+  
+  if (resultIcon) resultIcon.className = `bi ${data.icon}`;
+  if (resultCategory) resultCategory.textContent = categoryDisplay;
   if (resultCountryName) {
     resultCountryName.textContent = data.country || "Unknown";
-  } else {
-    document.getElementById("resultCountryDisplay").textContent = data.country || "Unknown";
   }
-  document.getElementById("resultDescription").textContent = data.description;
+  
+  // Update prediction result card border color
+  if (predictionResultCard) {
+    predictionResultCard.classList.remove("very-high", "high", "medium", "low");
+    predictionResultCard.classList.add(data.category.toLowerCase().replace(" ", "-"));
+  }
+  
+  // Update confidence display
+  const resultConfidence = document.getElementById("resultConfidence");
+  if (resultConfidence && data.confidence) {
+    const maxConfidence = Math.max(...Object.values(data.confidence));
+    resultConfidence.textContent = `${maxConfidence.toFixed(1)}%`;
+  }
 
-  resultCategoryBadge.textContent = data.category;
-  resultCategoryBadge.className = `score-badge badge badge-${data.badge || "secondary"}`;
-  predictionStatusBadge.className = `status-badge badge badge-${data.badge || "success"}`;
-  predictionStatusBadge.textContent = "Prediction Successful";
-
-  const ring = document.getElementById("resultIconRing");
-  ring.style.background = colors.ring;
-  ring.style.borderColor = colors.border;
-  ring.style.color = colors.border;
-  ring.style.boxShadow = `0 0 28px ${colors.border}33`;
-
-  const header = resultCard.querySelector(".result-header");
-  header.style.background = `linear-gradient(135deg, ${colors.border}33, ${colors.border}22)`;
-  header.style.borderBottom = `1px solid ${colors.border}44`;
+  // Update icon ring styling
+  if (resultIconRing) {
+    resultIconRing.style.background = colors.ring;
+    resultIconRing.style.borderColor = colors.border;
+    resultIconRing.style.color = colors.border;
+    resultIconRing.style.boxShadow = `0 0 28px ${colors.border}33`;
+  }
 
   const estimatedScore = estimateHdiScore(data.inputs);
   animateScore(estimatedScore);
 
-  renderConfidenceBars(data.confidence);
-  renderInputSummary(data.inputs);
-  renderExplanation(data.inputs);
-  renderFeatureContributions(data.inputs);
-  renderStrengthWeakness(data.inputs, data.category);
-  renderRecommendations(data.category, data.inputs);
-  renderScenario(data.category, data.inputs);
-  renderAiSummary(data.category, data.inputs, data.country);
+  // Update AI Summary section
+  const aiCategory = document.getElementById("aiCategory");
+  const aiConfidence = document.getElementById("aiConfidence");
+  const aiReason = document.getElementById("aiReason");
+  const aiRecommendation = document.getElementById("aiRecommendation");
+  
+  if (aiCategory) aiCategory.textContent = data.category;
+  if (aiConfidence && data.confidence) {
+    const maxConf = Math.max(...Object.values(data.confidence));
+    aiConfidence.textContent = `${maxConf.toFixed(1)}%`;
+  }
+  if (aiReason) {
+    const health = data.inputs.life_expectancy >= 75 ? "high life expectancy" : data.inputs.life_expectancy >= 60 ? "stable health" : "health needs attention";
+    const edu = (data.inputs.mean_years_schooling + data.inputs.expected_years_schooling) / 2 >= 12 ? "strong education" : "education needs improvement";
+    const income = data.inputs.gni_per_capita >= 20000 ? "strong income" : "developing income";
+    aiReason.textContent = `${health}, ${edu}, ${income}.`;
+  }
+  if (aiRecommendation) {
+    const recs = createRecommendationList(data.category, data.inputs);
+    aiRecommendation.textContent = recs[0] || "No specific recommendations.";
+  }
 
-  updateTimelineProgress();
+  if (resultDate) resultDate.textContent = new Date().toLocaleDateString();
+  if (resultTime) resultTime.textContent = new Date().toLocaleTimeString();
+  
+  // Update Country and Status in the summary section
+  const resultCountry = document.getElementById("resultCountry");
+  const predictionStatus = document.getElementById("predictionStatus");
+  const resultCategoryBadge = document.getElementById("resultCategoryBadge");
+  if (resultCountry) resultCountry.textContent = data.country || "Unknown";
+  if (predictionStatus) predictionStatus.textContent = "Prediction Successful";
+  if (resultCategoryBadge) resultCategoryBadge.textContent = data.category;
 
-  resultDate.textContent = new Date().toLocaleDateString();
-  resultTime.textContent = new Date().toLocaleTimeString();
-
-  resultPlaceholder.classList.add("d-none");
-  resultCard.classList.remove("d-none");
-  if (window.innerWidth < 992) resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Update classification section
+  updateClassification(data.category);
+  
+  // Update analytics progress bars
+  updateAnalyticsProgress(data.inputs);
+  
+  // Render recommendation cards
+  const recs = createRecommendationList(data.category, data.inputs);
+  renderRecommendationCards(recs);
+  
+  // Show the prediction dashboard below the form
+  const predictionDashboard = document.getElementById("predictionDashboard");
+  if (predictionDashboard) {
+    predictionDashboard.classList.remove("d-none");
+    fadeInElement(predictionDashboard);
+    // Smooth scroll to the dashboard
+    predictionDashboard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 async function handleFormSubmit(e) {
@@ -1147,7 +1444,7 @@ async function handleFormSubmit(e) {
   hideFormError();
 
   if (!validateAll()) return;
-  if (predictBtn.disabled) return;
+  if (predictBtn && predictBtn.disabled) return;
 
   setLoading(true);
 
@@ -1159,9 +1456,25 @@ async function handleFormSubmit(e) {
       showFormError(data.error || "Prediction failed. Please try again.");
       return;
     }
-    const selectedCountry = countryInput.value || countrySearch.value || "Unknown";
+    const selectedCountry = countryInput?.value || countrySearch?.value || "Unknown";
     const payload = { ...data, country: selectedCountry, inputs: { country: selectedCountry, ...data.inputs } };
     renderResult(payload);
+    
+    // Render all dashboard sections
+    const estimatedScore = estimateHdiScore(data.inputs);
+    renderCountryComparison(selectedCountry, estimatedScore);
+    renderPredictionConfidence(data.confidence);
+    renderFeatureImportance(data.inputs);
+    renderIndicatorStatus(data.inputs);
+    renderAiDevelopmentReport(data.category, data.inputs);
+    renderRiskLevel(data.category);
+    renderDevelopmentScore(data.inputs, data.category);
+    renderPredictionTimeline();
+    renderEstimatedLevel(data.category);
+    renderImprovementNeeded(data.inputs);
+    renderGoalAchievement(data.category);
+    renderStrengthsWeaknesses(data.inputs, data.category);
+    
     finalizeDashboard(data.inputs, data.category, selectedCountry);
     addHistoryEntry({
       country: selectedCountry,
@@ -1173,7 +1486,8 @@ async function handleFormSubmit(e) {
     });
     createToast("Prediction completed successfully.");
   } catch (err) {
-    showFormError("Network error. Please check your connection and try again.");
+    console.error("Prediction error:", err);
+    showFormError(err.message || "Network error. Please check your connection and try again.");
   } finally {
     setLoading(false);
   }
@@ -1181,54 +1495,96 @@ async function handleFormSubmit(e) {
 
 FIELDS.forEach(field => {
   const input = document.getElementById(field.id);
-  input.addEventListener("blur", () => validateField(field));
-  input.addEventListener("input", () => {
-    if (input.classList.contains("is-invalid")) validateField(field);
-    updateFieldStatus(field);
+  if (input) {
+    input.addEventListener("blur", () => validateField(field));
+    input.addEventListener("input", () => {
+      if (input.classList.contains("is-invalid")) validateField(field);
+      updateFieldStatus(field);
+    });
+  }
+});
+
+if (countrySearch) {
+  countrySearch.addEventListener("input", () => {
+    const query = countrySearch.value.trim();
+    if (!query) return countryDropdown?.classList.add("d-none");
+    updateCountryDropdown(filterCountries(query));
   });
-});
 
-countrySearch.addEventListener("input", () => {
-  const query = countrySearch.value.trim();
-  if (!query) return countryDropdown.classList.add("d-none");
-  updateCountryDropdown(filterCountries(query));
-});
+  countrySearch.addEventListener("focus", () => updateCountryDropdown(filterCountries(countrySearch.value.trim())));
+  countrySearch.addEventListener("blur", () => setTimeout(() => countryDropdown?.classList.add("d-none"), 130));
+}
 
-countrySearch.addEventListener("focus", () => updateCountryDropdown(filterCountries(countrySearch.value.trim())));
-countrySearch.addEventListener("blur", () => setTimeout(() => countryDropdown.classList.add("d-none"), 130));
+if (countryDropdown) {
+  countryDropdown.addEventListener("click", event => {
+    const item = event.target.closest(".country-item");
+    if (!item) return;
+    setSelectedCountry(item.dataset.name, item.dataset.code);
+  });
+}
 
-countryDropdown.addEventListener("click", event => {
-  const item = event.target.closest(".country-item");
-  if (!item) return;
-  setSelectedCountry(item.dataset.name, item.dataset.code);
-});
+if (downloadExcelBtn) downloadExcelBtn.addEventListener("click", downloadExcel);
+if (copyResultBtn) copyResultBtn.addEventListener("click", copyResult);
+if (downloadPDFBtn) downloadPDFBtn.addEventListener("click", downloadPDF);
+if (downloadCSVBtn) downloadCSVBtn.addEventListener("click", downloadCSV);
+if (printBtn) printBtn.addEventListener("click", printReport);
+if (copyLinkBtn) copyLinkBtn.addEventListener("click", copyLink);
+if (shareWhatsAppBtn) shareWhatsAppBtn.addEventListener("click", shareWhatsApp);
+if (shareLinkedInBtn) shareLinkedInBtn.addEventListener("click", shareLinkedIn);
+if (shareEmailBtn) shareEmailBtn.addEventListener("click", shareEmail);
+if (backToTopBtn) backToTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
-historySearch.addEventListener("input", () => renderHistory(historySearch.value || ""));
-historySortBtn.addEventListener("click", toggleHistorySort);
+// ── Contact Form Handling ───────────────────────────────────────────────
+const contactForm = document.getElementById("contactForm");
+const contactBtn = document.getElementById("contactBtn");
+const contactError = document.getElementById("contactError");
+const contactErrorMsg = document.getElementById("contactErrorMsg");
 
-downloadExcelBtn.addEventListener("click", downloadExcel);
-copyResultBtn.addEventListener("click", copyResult);
-downloadPDFBtn.addEventListener("click", downloadPDF);
-downloadCSVBtn.addEventListener("click", downloadCSV);
-printBtn.addEventListener("click", printReport);
-copyLinkBtn.addEventListener("click", copyLink);
-shareWhatsAppBtn.addEventListener("click", shareWhatsApp);
-shareLinkedInBtn.addEventListener("click", shareLinkedIn);
-shareEmailBtn.addEventListener("click", shareEmail);
-clearHistoryBtn.addEventListener("click", clearHistory);
-historyBody.addEventListener("click", event => {
-  const downloadBtn = event.target.closest(".history-download");
-  const deleteBtn = event.target.closest(".history-delete");
-  if (downloadBtn) {
-    downloadHistoryEntry(Number(downloadBtn.dataset.index));
+function handleContactSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById("contactName")?.value.trim();
+  const email = document.getElementById("contactEmail")?.value.trim();
+  const message = document.getElementById("contactMessage")?.value.trim();
+
+  if (!name || !email || !message) {
+    if (contactErrorMsg) contactErrorMsg.textContent = "All fields are required.";
+    if (contactError) contactError.classList.remove("d-none");
     return;
   }
-  if (deleteBtn) removeHistoryEntry(Number(deleteBtn.dataset.index));
-});
-backToTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  if (!email.includes("@")) {
+    if (contactErrorMsg) contactErrorMsg.textContent = "Please enter a valid email address.";
+    if (contactError) contactError.classList.remove("d-none");
+    return;
+  }
+
+  if (contactError) contactError.classList.add("d-none");
+  if (contactBtn) contactBtn.disabled = true;
+
+  fetch("/contact", {
+    method: "POST",
+    body: new FormData(contactForm),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        createToast(data.message);
+        if (contactForm) contactForm.reset();
+      } else {
+        if (contactErrorMsg) contactErrorMsg.textContent = data.error || "Failed to send message.";
+        if (contactError) contactError.classList.remove("d-none");
+      }
+    })
+    .catch(() => {
+      if (contactErrorMsg) contactErrorMsg.textContent = "Network error. Please try again.";
+      if (contactError) contactError.classList.remove("d-none");
+    })
+    .finally(() => {
+      if (contactBtn) contactBtn.disabled = false;
+    });
+}
 
 function initApp() {
-  loadHistory();
   updateScrollProgress();
   animateCounters();
   window.addEventListener("scroll", updateScrollProgress, { passive: true });
@@ -1247,6 +1603,10 @@ function initApp() {
       event.stopPropagation();
       handleFormSubmit(event);
     });
+  }
+
+  if (contactForm) {
+    contactForm.addEventListener("submit", handleContactSubmit);
   }
 }
 
@@ -1275,3 +1635,122 @@ window.addEventListener("scroll", () => {
     }
   });
 }, { passive: true });
+
+// ── History Management (localStorage) ─────────────────────────────────────
+function addHistoryEntry(entry) {
+  state.history.unshift({ ...entry, timestamp: Date.now() });
+  try {
+    localStorage.setItem("hdiPredictionHistory", JSON.stringify(state.history));
+  } catch (e) {
+    console.warn("Could not save to localStorage:", e);
+  }
+}
+
+function renderDashboardCharts(inputs, category) {
+  destroyDashboardCharts();
+  
+  // Bar Chart - Indicators Comparison (using actual input values)
+  const dashboardBarChart = document.getElementById("dashboardBarChart");
+  if (dashboardBarChart) {
+    state.chartInstances.dashboard.push(new Chart(dashboardBarChart, {
+      type: "bar",
+      data: {
+        labels: ["Life Expectancy", "Mean Schooling", "Expected Schooling", "GNI"],
+        datasets: [{
+          label: "Value",
+          data: [
+            inputs.life_expectancy,
+            inputs.mean_years_schooling,
+            inputs.expected_years_schooling,
+            Math.round(inputs.gni_per_capita / 1000) // Scale GNI for better visualization
+          ],
+          backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 900, easing: "easeOutQuart" },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label || '';
+                if (context.dataIndex === 3) {
+                  return label + ': $' + (context.parsed.y * 1000).toLocaleString();
+                }
+                return label + ': ' + context.parsed.y;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 11 } } },
+          y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(148,163,184,0.15)" } },
+        },
+      },
+    }));
+  }
+
+  // Doughnut Chart - Feature Contribution
+  const health = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
+  const education = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
+  const expectedSchooling = clamp(inputs.expected_years_schooling / 25 * 100, 0, 100);
+  const income = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
+  
+  const total = health + education + expectedSchooling + income;
+  const healthPart
+  const incomePart = total ? 100 - healthPart - educationPart : 0;
+
+  const dashboardDoughnutChart = document.getElementById("dashboardDoughnutChart");
+  if (dashboardDoughnutChart) {
+    state.chartInstances.dashboard.push(new Chart(dashboardDoughnutChart, {
+      type: "doughnut",
+      data: {
+        labels: ["Life Expectancy", "Education", "Expected Schooling", "Income"],
+        datasets: [{
+          data: [healthPart, educationPart, Math.round(expectedSchooling / 25 * 100), incomePart],
+          backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "65%",
+        plugins: { 
+          legend: { display: false }
+        },
+      },
+    }));
+  }
+  
+  // Render chart legend
+  renderChartLegend();
+}
+
+function renderChartLegend() {
+  const chartLegend = document.getElementById("chartLegend");
+  if (!chartLegend) return;
+  
+  const legendData = [
+    { label: "Life Expectancy", color: "#10b981" },
+    { label: "Education", color: "#3b82f6" },
+    { label: "Expected Schooling", color: "#f59e0b" },
+    { label: "Income", color: "#8b5cf6" }
+  ];
+  
+  chartLegend.innerHTML = `
+    <div class="chart-legend-items">
+      ${legendData.map(item => `
+        <div class="chart-legend-item">
+          <span class="chart-legend-color" style="background-color: ${item.color}"></span>
+          <span class="chart-legend-label">${item.label}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}

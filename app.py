@@ -180,6 +180,8 @@ def contact():
     # In production, send email here
     return jsonify({"success": True, "message": f"Thank you {name}! Your message has been received."})
 
-
+@app.route("/prediction-history")
+def prediction_history():
+    return render_template("prediction_history.html")
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
