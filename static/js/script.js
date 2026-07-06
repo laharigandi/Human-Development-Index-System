@@ -414,14 +414,39 @@ function downloadPDF() {
     return;
   }
   const report = makeReportData();
+
+  // Apply PDF-mode class so @media print CSS overrides activate
+  exportArea.classList.add("pdf-export-mode");
+
   const options = {
-    margin: 0.3,
+    margin:   [10, 10, 10, 10],
     filename: `HDI-report-${report.country.replace(/\s+/g, "-")}.pdf`,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    image:    { type: "jpeg", quality: 1.0 },
+    html2canvas: {
+      scale:           2,
+      useCORS:         true,
+      logging:         false,
+      backgroundColor: "#ffffff",
+      windowWidth:     900,
+      scrollX:         0,
+      scrollY:         0,
+    },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
   };
-  html2pdf().set(options).from(exportArea).save();
+
+  html2pdf()
+    .set(options)
+    .from(exportArea)
+    .save()
+    .then(() => {
+      exportArea.classList.remove("pdf-export-mode");
+      createToast("PDF downloaded successfully.");
+    })
+    .catch(() => {
+      exportArea.classList.remove("pdf-export-mode");
+      createToast("PDF generation failed.", "danger");
+    });
 }
 
 function makeReportData() {
@@ -1441,10 +1466,11 @@ function renderResult(data) {
 
 async function handleFormSubmit(e) {
   e.preventDefault();
+  e.stopPropagation();
   hideFormError();
 
-  if (!validateAll()) return;
   if (predictBtn && predictBtn.disabled) return;
+  if (!validateAll()) return;
 
   setLoading(true);
 
@@ -1460,20 +1486,10 @@ async function handleFormSubmit(e) {
     const payload = { ...data, country: selectedCountry, inputs: { country: selectedCountry, ...data.inputs } };
     renderResult(payload);
     
-    // Render all dashboard sections
-    const estimatedScore = estimateHdiScore(data.inputs);
-    renderCountryComparison(selectedCountry, estimatedScore);
-    renderPredictionConfidence(data.confidence);
-    renderFeatureImportance(data.inputs);
-    renderIndicatorStatus(data.inputs);
+    // Render dashboard sections
     renderAiDevelopmentReport(data.category, data.inputs);
-    renderRiskLevel(data.category);
-    renderDevelopmentScore(data.inputs, data.category);
-    renderPredictionTimeline();
-    renderEstimatedLevel(data.category);
-    renderImprovementNeeded(data.inputs);
-    renderGoalAchievement(data.category);
     renderStrengthsWeaknesses(data.inputs, data.category);
+    renderDashboardCharts(data.inputs, data.category);
     
     finalizeDashboard(data.inputs, data.category, selectedCountry);
     addHistoryEntry({
@@ -1523,15 +1539,6 @@ if (countryDropdown) {
   });
 }
 
-if (downloadExcelBtn) downloadExcelBtn.addEventListener("click", downloadExcel);
-if (copyResultBtn) copyResultBtn.addEventListener("click", copyResult);
-if (downloadPDFBtn) downloadPDFBtn.addEventListener("click", downloadPDF);
-if (downloadCSVBtn) downloadCSVBtn.addEventListener("click", downloadCSV);
-if (printBtn) printBtn.addEventListener("click", printReport);
-if (copyLinkBtn) copyLinkBtn.addEventListener("click", copyLink);
-if (shareWhatsAppBtn) shareWhatsAppBtn.addEventListener("click", shareWhatsApp);
-if (shareLinkedInBtn) shareLinkedInBtn.addEventListener("click", shareLinkedIn);
-if (shareEmailBtn) shareEmailBtn.addEventListener("click", shareEmail);
 if (backToTopBtn) backToTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
 // ── Contact Form Handling ───────────────────────────────────────────────
@@ -1590,24 +1597,22 @@ function initApp() {
   window.addEventListener("scroll", updateScrollProgress, { passive: true });
 
   if (form) {
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      handleFormSubmit(event);
-    });
-  }
-
-  if (predictBtn) {
-    predictBtn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      handleFormSubmit(event);
-    });
+    form.addEventListener("submit", handleFormSubmit);
   }
 
   if (contactForm) {
     contactForm.addEventListener("submit", handleContactSubmit);
   }
+
+  if (downloadExcelBtn) downloadExcelBtn.addEventListener("click", downloadExcel);
+  if (copyResultBtn) copyResultBtn.addEventListener("click", copyResult);
+  if (downloadPDFBtn) downloadPDFBtn.addEventListener("click", downloadPDF);
+  if (downloadCSVBtn) downloadCSVBtn.addEventListener("click", downloadCSV);
+  if (printBtn) printBtn.addEventListener("click", printReport);
+  if (copyLinkBtn) copyLinkBtn.addEventListener("click", copyLink);
+  if (shareWhatsAppBtn) shareWhatsAppBtn.addEventListener("click", shareWhatsApp);
+  if (shareLinkedInBtn) shareLinkedInBtn.addEventListener("click", shareLinkedIn);
+  if (shareEmailBtn) shareEmailBtn.addEventListener("click", shareEmail);
 }
 
 window.addEventListener("DOMContentLoaded", initApp);
@@ -1648,24 +1653,24 @@ function addHistoryEntry(entry) {
 
 function renderDashboardCharts(inputs, category) {
   destroyDashboardCharts();
-  
-  // Bar Chart - Indicators Comparison (using actual input values)
-  const dashboardBarChart = document.getElementById("dashboardBarChart");
-  if (dashboardBarChart) {
-    state.chartInstances.dashboard.push(new Chart(dashboardBarChart, {
+
+  // Bar Chart — Indicators Comparison
+  const barCanvas = document.getElementById("dashboardBarChart");
+  if (barCanvas) {
+    state.chartInstances.dashboard.push(new Chart(barCanvas, {
       type: "bar",
       data: {
-        labels: ["Life Expectancy", "Mean Schooling", "Expected Schooling", "GNI"],
+        labels: ["Life Expectancy", "Mean Schooling", "Exp. Schooling", "GNI (k$)"],
         datasets: [{
           label: "Value",
           data: [
             inputs.life_expectancy,
             inputs.mean_years_schooling,
             inputs.expected_years_schooling,
-            Math.round(inputs.gni_per_capita / 1000) // Scale GNI for better visualization
+            parseFloat((inputs.gni_per_capita / 1000).toFixed(1)),
           ],
           backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
-          borderRadius: 6,
+          borderRadius: 8,
           borderSkipped: false,
         }],
       },
@@ -1673,84 +1678,88 @@ function renderDashboardCharts(inputs, category) {
         responsive: true,
         maintainAspectRatio: false,
         animation: { duration: 900, easing: "easeOutQuart" },
-        plugins: { 
+        plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: function(context) {
-                const label = context.dataset.label || '';
-                if (context.dataIndex === 3) {
-                  return label + ': $' + (context.parsed.y * 1000).toLocaleString();
-                }
-                return label + ': ' + context.parsed.y;
-              }
-            }
-          }
+              label: (ctx) => ctx.dataIndex === 3
+                ? `GNI: $${(ctx.parsed.y * 1000).toLocaleString()}`
+                : `${ctx.label}: ${ctx.parsed.y}`,
+            },
+          },
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 11 } } },
-          y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(148,163,184,0.15)" } },
+          x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } },
+          y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "rgba(148,163,184,0.12)" } },
         },
       },
     }));
   }
 
-  // Doughnut Chart - Feature Contribution
-  const health = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
-  const education = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
-  const expectedSchooling = clamp(inputs.expected_years_schooling / 25 * 100, 0, 100);
-  const income = clamp((inputs.gni_per_capita - 100) / 149900 * 100, 0, 100);
-  
-  const total = health + education + expectedSchooling + income;
-  const healthPart
-  const incomePart = total ? 100 - healthPart - educationPart : 0;
+  // Doughnut Chart — Feature Contribution
+  const healthVal   = clamp((inputs.life_expectancy - 20) / 70 * 100, 0, 100);
+  const eduVal      = clamp(((inputs.mean_years_schooling + inputs.expected_years_schooling) / 45) * 100, 0, 100);
+  const expSchoolVal = clamp(inputs.expected_years_schooling / 25 * 100, 0, 100);
+  const incomeVal   = clamp((Math.log(inputs.gni_per_capita) - Math.log(100)) / (Math.log(150000) - Math.log(100)) * 100, 0, 100);
+  const total = healthVal + eduVal + expSchoolVal + incomeVal || 1;
+  const slices = [
+    parseFloat((healthVal / total * 100).toFixed(1)),
+    parseFloat((eduVal / total * 100).toFixed(1)),
+    parseFloat((expSchoolVal / total * 100).toFixed(1)),
+    parseFloat((incomeVal / total * 100).toFixed(1)),
+  ];
 
-  const dashboardDoughnutChart = document.getElementById("dashboardDoughnutChart");
-  if (dashboardDoughnutChart) {
-    state.chartInstances.dashboard.push(new Chart(dashboardDoughnutChart, {
+  const doughnutCanvas = document.getElementById("dashboardDoughnutChart");
+  if (doughnutCanvas) {
+    state.chartInstances.dashboard.push(new Chart(doughnutCanvas, {
       type: "doughnut",
       data: {
         labels: ["Life Expectancy", "Education", "Expected Schooling", "Income"],
         datasets: [{
-          data: [healthPart, educationPart, Math.round(expectedSchooling / 25 * 100), incomePart],
+          data: slices,
           backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
-          borderWidth: 0,
+          borderWidth: 2,
+          borderColor: "transparent",
+          hoverOffset: 6,
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "65%",
-        plugins: { 
-          legend: { display: false }
+        cutout: "62%",
+        animation: { duration: 900, easing: "easeOutQuart" },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%`,
+            },
+          },
         },
       },
     }));
   }
-  
-  // Render chart legend
-  renderChartLegend();
+
+  renderChartLegend(slices);
 }
 
-function renderChartLegend() {
+function renderChartLegend(slices) {
   const chartLegend = document.getElementById("chartLegend");
   if (!chartLegend) return;
-  
+
   const legendData = [
     { label: "Life Expectancy", color: "#10b981" },
-    { label: "Education", color: "#3b82f6" },
-    { label: "Expected Schooling", color: "#f59e0b" },
-    { label: "Income", color: "#8b5cf6" }
+    { label: "Education",       color: "#3b82f6" },
+    { label: "Exp. Schooling",  color: "#f59e0b" },
+    { label: "Income",          color: "#8b5cf6" },
   ];
-  
-  chartLegend.innerHTML = `
-    <div class="chart-legend-items">
-      ${legendData.map(item => `
-        <div class="chart-legend-item">
-          <span class="chart-legend-color" style="background-color: ${item.color}"></span>
-          <span class="chart-legend-label">${item.label}</span>
-        </div>
-      `).join("")}
-    </div>
-  `;
+
+  chartLegend.innerHTML = `<div class="chart-legend-items">${
+    legendData.map((item, i) => `
+      <div class="chart-legend-item">
+        <span class="chart-legend-color" style="background:${item.color}"></span>
+        <span class="chart-legend-label">${item.label}</span>
+        ${slices ? `<span class="chart-legend-pct">${slices[i]}%</span>` : ""}
+      </div>`).join("")
+  }</div>`;
 }

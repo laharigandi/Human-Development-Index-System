@@ -58,24 +58,13 @@ function copyResult() {
 
 // ── Finalize Dashboard ─────────────────────────────────────────────────────
 function finalizeDashboard(inputs, category, country) {
-  // Animate all dashboard cards on show
   const dashboard = document.getElementById("predictionDashboard");
-  if (dashboard) {
-    dashboard.classList.add("dashboard-fade-in");
-  }
-  
-  // Animate analytics cards
+  if (dashboard) dashboard.classList.add("dashboard-fade-in");
+
   document.querySelectorAll(".analytics-card").forEach((card, index) => {
     card.style.animationDelay = `${index * 0.1}s`;
     card.classList.add("fade-in");
   });
-  
-  // Animate chart cards
-  document.querySelectorAll(".chart-card").forEach((card, index) => {
-    card.style.animationDelay = `${(index + 4) * 0.1}s`;
-    card.classList.add("fade-in");
-  });
-  
-  // Update analytics progress bars
+
   updateAnalyticsProgress(inputs);
 }

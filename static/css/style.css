@@ -1870,9 +1870,79 @@ body {
   border: 1px solid #E5E7EB;
 }
 
-/* ── Visualization Section ─────────────────────────────────────────────── */
-.visualization-section {
-  margin-top: 1.5rem;
+/* ── Data Visualization Section ─────────────────────────────────────────── */
+.data-viz-section {
+  animation: fadeInPanel 0.55s ease-out both;
+}
+
+.data-viz-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.2rem;
+}
+
+.data-viz-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.data-viz-section .chart-card {
+  min-height: unset;
+  padding: 16px;
+  opacity: 1;
+  transform: none;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.data-viz-section .chart-wrapper {
+  position: relative;
+  height: 255px;
+  width: 100%;
+}
+
+.data-viz-section .chart-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.chart-legend { margin-top: 0.75rem; }
+
+.chart-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.85rem;
+  justify-content: center;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.chart-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-legend-label { color: var(--text-light); }
+.chart-legend-pct { font-weight: 700; color: var(--text); }
+
+[data-theme="light"] .data-viz-title { color: var(--text); }
+[data-theme="light"] .chart-legend-label { color: var(--text-light); }
+[data-theme="light"] .chart-legend-pct { color: var(--text); }
+
+@media (max-width: 767px) {
+  .data-viz-section .chart-wrapper { height: 220px; }
 }
 
 /* ── Recommendation Panel ─────────────────────────────────────────────── */
@@ -3394,15 +3464,13 @@ body {
   }
 }
 
-/* Fade-in animation for analytics - applied via JS when dashboard is shown */
-.analytics-card.fade-in,
-.chart-card.fade-in {
+/* Fade-in animation for analytics cards only (not chart cards in data-viz) */
+.analytics-card.fade-in {
   opacity: 1;
   transform: translateY(0);
 }
 
-.analytics-card,
-.chart-card {
+.analytics-card {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.5s ease, transform 0.5s ease;
@@ -3413,4 +3481,187 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PDF EXPORT OVERRIDES
+   Activated only when .pdf-export-mode is added by downloadPDF().
+   Zero effect on the live webpage.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Page-break control ─────────────────────────────────────────── */
+.pdf-export-mode .prediction-result-card,
+.pdf-export-mode .classification-section,
+.pdf-export-mode .data-viz-section,
+.pdf-export-mode .ai-report-section,
+.pdf-export-mode .strength-weakness-section,
+.pdf-export-mode .recommendation-section,
+.pdf-export-mode .download-section {
+  page-break-inside: avoid;
+  break-inside:      avoid;
+}
+
+.pdf-export-mode .classification-section,
+.pdf-export-mode .data-viz-section,
+.pdf-export-mode .ai-report-section,
+.pdf-export-mode .strength-weakness-section,
+.pdf-export-mode .recommendation-section {
+  page-break-before: auto;
+  break-before:      auto;
+}
+
+/* ── Force white page background ────────────────────────────────── */
+.pdf-export-mode {
+  background: #ffffff !important;
+  color:      #0f172a !important;
+  padding:    24px    !important;
+  font-family: 'Inter', Arial, sans-serif !important;
+}
+
+/* ── Cards: white background, solid border, no transparency ─────── */
+.pdf-export-mode .prediction-result-card,
+.pdf-export-mode .classification-card,
+.pdf-export-mode .chart-card,
+.pdf-export-mode .ai-report-card,
+.pdf-export-mode .strengths-card,
+.pdf-export-mode .weaknesses-card,
+.pdf-export-mode .recommendation-card,
+.pdf-export-mode .download-card {
+  background:    #ffffff       !important;
+  border:        1px solid #d1d5db !important;
+  border-radius: 12px          !important;
+  box-shadow:    0 2px 8px rgba(0,0,0,0.08) !important;
+  backdrop-filter: none        !important;
+  margin-bottom: 16px          !important;
+}
+
+/* ── Category-specific left border colours (keep brand identity) ── */
+.pdf-export-mode .prediction-result-card.very-high { border-left: 5px solid #10b981 !important; }
+.pdf-export-mode .prediction-result-card.high      { border-left: 5px solid #3b82f6 !important; }
+.pdf-export-mode .prediction-result-card.medium    { border-left: 5px solid #f59e0b !important; }
+.pdf-export-mode .prediction-result-card.low       { border-left: 5px solid #ef4444 !important; }
+
+/* ── All text: dark on white ────────────────────────────────────── */
+.pdf-export-mode,
+.pdf-export-mode * {
+  color: #0f172a !important;
+}
+
+/* ── Muted / secondary text ─────────────────────────────────────── */
+.pdf-export-mode .result-label,
+.pdf-export-mode .summary-key,
+.pdf-export-mode .ai-report-label,
+.pdf-export-mode .classification-range,
+.pdf-export-mode .chart-title,
+.pdf-export-mode .data-viz-subtitle,
+.pdf-export-mode .recommendation-card-title,
+.pdf-export-mode .strengths-title,
+.pdf-export-mode .weaknesses-title,
+.pdf-export-mode .download-title {
+  color: #374151 !important;
+}
+
+/* ── Accent colours: keep vibrant ──────────────────────────────── */
+.pdf-export-mode .result-category          { color: #1e293b !important; font-weight: 800 !important; }
+.pdf-export-mode .score-value              { color: #1e293b !important; }
+.pdf-export-mode .score-badge              { background: #ede9fe !important; color: #4f46e5 !important; }
+.pdf-export-mode .strengths-title          { color: #059669 !important; }
+.pdf-export-mode .weaknesses-title         { color: #d97706 !important; }
+
+/* Classification badges */
+.pdf-export-mode .classification-item[data-category="very-high"] .classification-badge { color: #059669 !important; }
+.pdf-export-mode .classification-item[data-category="high"]      .classification-badge { color: #2563eb !important; }
+.pdf-export-mode .classification-item[data-category="medium"]    .classification-badge { color: #d97706 !important; }
+.pdf-export-mode .classification-item[data-category="low"]       .classification-badge { color: #dc2626 !important; }
+
+/* Active classification highlight */
+.pdf-export-mode .classification-item.active {
+  background:  #ede9fe !important;
+  border-color: #6366f1 !important;
+}
+
+/* ── Summary items ──────────────────────────────────────────────── */
+.pdf-export-mode .summary-item {
+  background:    #f8fafc !important;
+  border:        1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+}
+.pdf-export-mode .summary-value { color: #0f172a !important; font-weight: 700 !important; }
+
+/* ── AI report items ────────────────────────────────────────────── */
+.pdf-export-mode .ai-report-item {
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding-bottom: 10px !important;
+}
+.pdf-export-mode .ai-report-value { color: #1e293b !important; }
+
+/* ── Strengths / Weaknesses list items ──────────────────────────── */
+.pdf-export-mode .strengths-list li,
+.pdf-export-mode .weaknesses-list li {
+  background:    #f8fafc !important;
+  border:        1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  color:         #1e293b !important;
+}
+
+/* ── Recommendation cards ───────────────────────────────────────── */
+.pdf-export-mode .recommendation-card {
+  background: #f8fafc !important;
+}
+.pdf-export-mode .recommendation-card-icon {
+  background: #ede9fe !important;
+  color:      #4f46e5 !important;
+}
+.pdf-export-mode .recommendation-card-text { color: #374151 !important; }
+
+/* ── Classification grid items ──────────────────────────────────── */
+.pdf-export-mode .classification-item {
+  background:    #f8fafc !important;
+  border:        1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+}
+
+/* ── Chart wrappers: ensure fixed height renders correctly ───────── */
+.pdf-export-mode .chart-wrapper {
+  height:   255px !important;
+  overflow: visible !important;
+}
+
+/* ── Chart legend ───────────────────────────────────────────────── */
+.pdf-export-mode .chart-legend-label { color: #374151 !important; }
+.pdf-export-mode .chart-legend-pct   { color: #0f172a !important; font-weight: 700 !important; }
+
+/* ── Result icon ring ───────────────────────────────────────────── */
+.pdf-export-mode .result-icon-ring {
+  background: #f0fdf4 !important;
+}
+
+/* ── AI badge ───────────────────────────────────────────────────── */
+.pdf-export-mode .ai-badge {
+  background: linear-gradient(135deg, #4f46e5, #312e81) !important;
+  color: #ffffff !important;
+}
+
+/* ── Predict card header (section headers) ──────────────────────── */
+.pdf-export-mode .predict-card-header {
+  background: linear-gradient(135deg, #4f46e5, #312e81) !important;
+  color: #ffffff !important;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+/* ── Hide download buttons inside the PDF itself ────────────────── */
+.pdf-export-mode .download-section { display: none !important; }
+
+/* ── Remove hover transforms that can misalign capture ──────────── */
+.pdf-export-mode *:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Remove pseudo-element gradient borders (not needed in PDF) ─── */
+.pdf-export-mode .prediction-result-card::before,
+.pdf-export-mode .ai-report-card::before,
+.pdf-export-mode .ai-summary-card::before {
+  display: none !important;
 }
