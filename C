@@ -1,0 +1,7 @@
+import sqlite3
+conn = sqlite3.connect('HDI-prediction-system/hdi_predictions.db')
+cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+print('Tables:', [row[0] for row in cursor.fetchall()])
+cursor = conn.execute("SELECT * FROM users")
+print('Users:', [dict(row) for row in cursor.fetchall()] if cursor.fetchall() else 'No users')
+conn.close()

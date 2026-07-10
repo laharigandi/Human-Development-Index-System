@@ -74,10 +74,8 @@
 
 /* ── Light theme component overrides (keeps dark mode untouched) ───────────────── */
 [data-theme="light"] .navbar {
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+  background: transparent !important;
+  color: #1f2937;
 }
 
 [data-theme="light"] .nav-link { color: var(--text-light) !important; }
@@ -366,16 +364,27 @@ body {
 
 /* ── Navbar ─────────────────────────────────────────────────────── */
 .navbar {
-  background: rgba(15,23,42,0.95);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
   z-index: 1000;
+  padding: 0.75rem 0;
   transition: background var(--transition), border-color var(--transition);
 }
 
+/* Light Mode - Transparent navbar */
 [data-theme="light"] .navbar {
-  background: rgba(248,250,252,0.95);
+  background: transparent !important;
+  color: #1f2937;
+}
+
+/* Dark Mode - Transparent navbar */
+[data-theme="dark"] .navbar,
+.navbar:not([data-theme]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 .brand-icon {
@@ -389,25 +398,198 @@ body {
 
 .brand-icon-sm { width: 34px; height: 34px; font-size: 1rem; border-radius: 8px; }
 
+/* ── HDI Navbar Icon (Modern SaaS Style) ─────────────────────────── */
+.hdi-navbar-icon {
+  font-size: 36px;
+  line-height: 1;
+  color: var(--primary);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* Logo Hover - Rotate and Scale */
+.navbar-brand:hover .hdi-navbar-icon {
+  transform: scale(1.05) rotate(-2deg);
+  transition: 0.3s;
+}
+
+/* Light theme: icon uses primary color (dark blue) */
+[data-theme="light"] .hdi-navbar-icon {
+  color: var(--primary);
+}
+
+/* Dark theme: icon uses primary color (light blue/purple) */
+[data-theme="dark"] .hdi-navbar-icon {
+  color: var(--primary);
+}
+
 .brand-title { font-size: 1.1rem; font-weight: 700; color: var(--text) !important; line-height: 1.2; }
 .brand-sub   { font-size: 0.65rem; color: var(--text-muted) !important; font-weight: 400; }
 
+/* ── Nav Links (Modern SaaS Style) ─────────────────────────────────── */
 .nav-link {
   color: var(--text-light) !important;
-  font-weight: 500; font-size: 0.9rem;
-  padding: 0.5rem 0.75rem !important;
-  border-radius: 8px;
-  transition: var(--transition);
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 10px 16px !important;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  position: relative;
 }
-.nav-link:hover { color: var(--text) !important; background: var(--overlay-2); }
 
-.btn-predict-nav {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: var(--text) !important; font-size: 0.85rem; font-weight: 600;
-  padding: 0.45rem 1.1rem; border-radius: 8px; border: none;
-  transition: var(--transition);
+/* Nav Link Hover Effect */
+.nav-link:hover {
+  background: rgba(59,130,246,.12);
+  color: #2563eb !important;
+  transform: translateY(-2px);
 }
-.btn-predict-nav:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+
+/* Icon animation on hover */
+.nav-link:hover i {
+  transform: scale(1.15);
+  transition: 0.3s;
+}
+
+/* Active Page Highlight - Gradient Background */
+.nav-link.active {
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: white !important;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(37,99,235,.35);
+  font-weight: 500;
+}
+
+/* Underline Animation */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 0;
+  height: 2px;
+  background: #2563eb;
+  transition: 0.3s;
+  transform: translateX(-50%);
+}
+
+.nav-link:hover::after {
+  width: 70%;
+}
+
+/* ── Theme Toggle Button (Modern SaaS Style) ─────────────────────────── */
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  background: var(--overlay-2);
+  border: 1px solid var(--border) !important;
+  border-radius: 10px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text) !important;
+  font-size: 1.05rem;
+  transition: 0.4s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(37,99,235,.12);
+  transform: rotate(180deg);
+}
+
+/* ── User Profile Dropdown (Modern SaaS Style) ─────────────────────── */
+.nav-item.dropdown .nav-link {
+  padding: 8px 12px !important;
+}
+
+.nav-item.dropdown .nav-link:hover {
+  background: rgba(37,99,235,.08);
+  border-radius: 10px;
+  transition: 0.3s;
+}
+
+/* Dropdown Menu Styling */
+.dropdown-menu {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  padding: 0.5rem;
+  min-width: 200px;
+}
+
+.dropdown-item {
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  transition: 0.25s;
+  font-weight: 500;
+}
+
+.dropdown-item:hover {
+  background: rgba(59,130,246,.12);
+  color: #2563eb;
+}
+
+.dropdown-item.text-danger:hover {
+  background: rgba(239,68,68,.12);
+  color: #ef4444;
+}
+
+.dropdown-divider {
+  border-color: var(--border);
+  margin: 0.5rem 0;
+}
+
+/* Light theme dropdown overrides */
+[data-theme="light"] .dropdown-menu {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+}
+
+[data-theme="light"] .dropdown-item {
+  color: #0f172a;
+}
+
+[data-theme="light"] .dropdown-item:hover {
+  background: rgba(37,99,235,.08);
+  color: #2563eb;
+}
+
+/* ── Responsive Navbar ─────────────────────────────────────────────── */
+@media (max-width: 992px) {
+  .navbar-collapse {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    animation: slideDown 0.3s ease;
+  }
+  
+  [data-theme="light"] .navbar-collapse {
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+  }
+  
+  .navbar-nav {
+    gap: 0.5rem !important;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 /* ── Hero ───────────────────────────────────────────────────────── */
 .hero-section {
@@ -3665,3 +3847,182 @@ body {
 .pdf-export-mode .ai-summary-card::before {
   display: none !important;
 }
+
+/* ── History Page Styles ───────────────────────────────────────────── */
+.history-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.history-header {
+  margin-bottom: 1.5rem;
+}
+
+.history-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history-sub {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.history-search {
+  min-width: 200px;
+}
+
+.search-wrapper {
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  z-index: 10;
+}
+
+.history-search {
+  padding-left: 2.5rem !important;
+}
+
+.history-table-wrapper {
+  margin-bottom: 1rem;
+}
+
+.history-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+}
+
+.history-table td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  color: var(--text);
+}
+
+.history-row:hover {
+  background: var(--overlay-1);
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--overlay-1);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.action-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.action-btn.delete-btn:hover {
+  background: var(--danger);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.empty-illustration {
+  font-size: 4rem;
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.empty-state h4 {
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+/* View Modal Grid */
+.view-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.view-modal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.view-modal-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.view-modal-value {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+/* Light mode history card */
+[data-theme="light"] .history-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .history-table th {
+  color: var(--text);
+}
+
+[data-theme="light"] .history-table td {
+  color: var(--text);
+}
+
+[data-theme="light"] .action-btn {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .action-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Category badge colors */
+.badge.bg-success {
+  background-color: var(--success) !important;
+}
+
+.badge.bg-primary {
+  background-color: var(--primary) !important;
+}
+
+.badge.bg-warning {
+  background-color: var(--warning) !important;
+}
+
+.badge.bg-danger {
+  background-color: var(--danger) !important;
+}
+

@@ -526,6 +526,94 @@ function createToast(message, type = "success") {
   }, 3400);
 }
 
+// ── Login Prompt for Unauthenticated Users ─────────────────────────────────────
+function showLoginPrompt() {
+  // Create a modal or toast to prompt user to login
+  const promptHtml = `
+    <div class="auth-prompt-overlay" id="authPromptOverlay">
+      <div class="auth-prompt-card">
+        <div class="auth-prompt-icon">
+          <i class="bi bi-person-lock"></i>
+        </div>
+        <h4>Login Required</h4>
+        <p>Please login to use the HDI prediction feature. Your predictions will be saved to your account.</p>
+        <div class="auth-prompt-actions">
+          <a href="/login" class="btn btn-predict">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+          </a>
+          <a href="/register" class="btn btn-hero-outline">
+            <i class="bi bi-person-plus me-2"></i>Register
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add to body
+  const overlay = document.createElement("div");
+  overlay.innerHTML = promptHtml;
+  document.body.appendChild(overlay.firstElementChild);
+  
+  // Add styles
+  const style = document.createElement("style");
+  style.textContent = `
+    .auth-prompt-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.3s ease;
+    }
+    .auth-prompt-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      max-width: 400px;
+      backdrop-filter: blur(20px);
+    }
+    .auth-prompt-icon {
+      font-size: 3rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+    .auth-prompt-card h4 {
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    .auth-prompt-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+    .auth-prompt-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Add click handler to close
+  const authOverlay = document.getElementById("authPromptOverlay");
+  authOverlay.addEventListener("click", (e) => {
+    if (e.target === authOverlay) {
+      authOverlay.remove();
+      style.remove();
+    }
+  });
+}
+
 function showFormError(msg) {
   if (formErrorMsg) formErrorMsg.textContent = msg;
   if (formError) formError.classList.remove("d-none");

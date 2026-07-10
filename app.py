@@ -4,9 +4,43 @@ app.py - Flask web application for HDI Prediction System
 
 import pickle
 import numpy as np
-from flask import Flask, render_template, request, jsonify
+import os
+import secrets
+from datetime import timedelta
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from functools import wraps
+
+# Import config first to avoid circular imports
+from config import SECRET_KEY, SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, PERMANENT_SESSION_LIFETIME
 
 app = Flask(__name__)
+
+# ── Security Configuration ─────────────────────────────────────────────────────
+app.secret_key = SECRET_KEY
+app.config['SESSION_COOKIE_SECURE'] = SESSION_COOKIE_SECURE
+app.config['SESSION_COOKIE_HTTPONLY'] = SESSION_COOKIE_HTTPONLY
+app.config['SESSION_COOKIE_SAMESITE'] = SESSION_COOKIE_SAMESITE
+app.config['PERMANENT_SESSION_LIFETIME'] = PERMANENT_SESSION_LIFETIME
+
+# Import authentication components (after app is configured)
+from auth import auth_bp, login_required
+from database import init_db, close_db, get_db, create_prediction, get_user_predictions, get_prediction_count
+
+# ── Database Initialization ─────────────────────────────────────────────────────
+app.teardown_appcontext(close_db)
+
+# Initialize database on first request and debug session
+@app.before_request
+def initialize_database():
+    # Debug: Print session info on each request
+    print(f"[DEBUG] Request: {request.path} - Session: {dict(session)}")
+    if 'user_id' in session:
+        print(f"[DEBUG] User logged in: user_id={session.get('user_id')}, username={session.get('username')}")
+    
+    if not hasattr(app, '_db_initialized'):
+        with app.app_context():
+            init_db()
+        app._db_initialized = True
 
 # ── Load ML artifacts ──────────────────────────────────────────────────────────
 def load_model_artifacts():
@@ -24,6 +58,9 @@ try:
 except FileNotFoundError:
     model = scaler = le = None
     print("[WARN] Model artifacts not found. Run train_model.py first.")
+except Exception as e:
+    model = scaler = le = None
+    print(f"[ERROR] Failed to load model artifacts: {e}")
 
 # ── Validation helpers ─────────────────────────────────────────────────────────
 VALID_RANGES = {
@@ -99,14 +136,22 @@ def predict_hdi(values):
     return category, confidence
 
 
+# ── Register Authentication Blueprint ─────────────────────────────────────────
+app.register_blueprint(auth_bp)
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["GET", "POST"])
 def predict():
+    # Handle GET request - redirect to index with predict section
+    if request.method == "GET":
+        return redirect(url_for("index", _anchor="predict"))
+    
     if model is None:
         return jsonify({"error": "Model not loaded. Please run train_model.py first."}), 503
 
@@ -117,7 +162,11 @@ def predict():
     try:
         category, confidence = predict_hdi(values)
         meta = CATEGORY_META[category]
-        return jsonify({
+        
+        # Calculate average score for the prediction
+        avg_score = sum(confidence.values()) / len(confidence)
+        
+        response = {
             "category":    category,
             "color":       meta["color"],
             "badge":       meta["badge"],
@@ -125,7 +174,25 @@ def predict():
             "description": meta["description"],
             "confidence":  confidence,
             "inputs":      values,
-        })
+            "score":       round(avg_score / 100, 3),  # Convert to 0-1 scale
+        }
+        
+        # Save prediction to database if user is logged in
+        if 'user_id' in session:
+            country = request.form.get('country', '')
+            create_prediction(
+                user_id=session['user_id'],
+                country=country,
+                life_expectancy=values['life_expectancy'],
+                mean_schooling=values['mean_years_schooling'],
+                expected_schooling=values['expected_years_schooling'],
+                gni=values['gni_per_capita'],
+                prediction=category,
+                score=round(avg_score / 100, 3),
+                confidence=str(confidence)
+            )
+        
+        return jsonify(response)
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
@@ -180,8 +247,17 @@ def contact():
     # In production, send email here
     return jsonify({"success": True, "message": f"Thank you {name}! Your message has been received."})
 
-@app.route("/prediction-history")
-def prediction_history():
-    return render_template("prediction_history.html")
+
+# ── Context Processor for Templates ───────────────────────────────────────────
+@app.context_processor
+def inject_user():
+    """Inject user info into all templates."""
+    return dict(
+        current_user_id=session.get('user_id'),
+        current_username=session.get('username'),
+        current_fullname=session.get('fullname')
+    )
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

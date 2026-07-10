@@ -1,6 +1,7 @@
 /**
  * history.js — HDI Prediction History Page
  * Handles history display, filtering, pagination, and export for the history page.
+ * Fetches data from server API instead of localStorage.
  */
 
 "use strict";
@@ -14,7 +15,7 @@ const historyState = {
   categoryFilter: "all",
   sortBy: "newest",
   searchQuery: "",
-  deleteIndex: null,
+  deleteId: null,
 };
 
 // ── DOM References ───────────────────────────────────────────────────
@@ -26,9 +27,9 @@ const emptyState = document.getElementById("emptyState");
 const paginationNav = document.getElementById("paginationNav");
 const paginationList = document.getElementById("paginationList");
 const totalPredictionsEl = document.getElementById("totalPredictions");
-const todayPredictionsEl = document.getElementById("todayPredictions");
-const highestHdiEl = document.getElementById("highestHdi");
-const lowestHdiEl = document.getElementById("lowestHdi");
+const lastPredictionEl = document.getElementById("lastPrediction");
+const averageConfidenceEl = document.getElementById("averageConfidence");
+const mostPredictedCategoryEl = document.getElementById("mostPredictedCategory");
 const exportPdfBtn = document.getElementById("exportPdfBtn");
 const exportExcelBtn = document.getElementById("exportExcelBtn");
 const printHistoryBtn = document.getElementById("printHistoryBtn");
@@ -100,14 +101,36 @@ function formatMoney(value) {
   return `$${Number(value).toLocaleString()}`;
 }
 
-function estimateHdiScore(inputs) {
-  const health = Math.min(Math.max((inputs.life_expectancy - 20) / 70, 0), 1);
-  const meanEdu = Math.min(Math.max(inputs.mean_years_schooling / 20, 0), 1);
-  const expectedEdu = Math.min(Math.max(inputs.expected_years_schooling / 25, 0), 1);
-  const education = (meanEdu + expectedEdu) / 2;
-  const income = Math.min(Math.max(Math.log(inputs.gni_per_capita) / Math.log(150000), 0), 1);
-  const score = 0.32 * health + 0.33 * education + 0.35 * income;
-  return Number(score.toFixed(3));
+function formatDate(dateString) {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatTime(dateString) {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function getCategoryBadgeClass(category) {
+  const classes = {
+    "Very High": "very-high",
+    "High": "high",
+    "Medium": "medium",
+    "Low": "low"
+  };
+  return classes[category] || "medium";
+}
+
+function getCategoryBadgeColor(category) {
+  const colors = {
+    "Very High": "success",
+    "High": "primary",
+    "Medium": "warning",
+    "Low": "danger"
+  };
+  return colors[category] || "secondary";
 }
 
 function createToast(message, type = "success") {
@@ -130,14 +153,21 @@ function createToast(message, type = "success") {
   }, 3400);
 }
 
-// ── Load History from LocalStorage ───────────────────────────────────
-function loadHistory() {
+// ── Load History from Server API ─────────────────────────────────────
+async function loadHistory() {
   try {
-    const stored = JSON.parse(localStorage.getItem("hdiPredictionHistory") || "[]");
-    if (Array.isArray(stored)) {
-      historyState.history = stored;
+    const response = await fetch("/api/predictions");
+    if (!response.ok) {
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+      throw new Error("Failed to load predictions");
     }
-  } catch {
+    const data = await response.json();
+    historyState.history = data.predictions || [];
+  } catch (error) {
+    console.error("Error loading history:", error);
     historyState.history = [];
   }
   updateStats();
@@ -149,35 +179,40 @@ function updateStats() {
   const total = historyState.history.length;
   totalPredictionsEl.textContent = total;
 
-  // Today's predictions
-  const today = new Date().toLocaleDateString();
-  const todayCount = historyState.history.filter(h => h.date === today).length;
-  todayPredictionsEl.textContent = todayCount;
-
-  // Highest and Lowest HDI
-  const latestPredictionEl = document.getElementById("latestPrediction");
-  const averageHdiEl = document.getElementById("averageHdi");
-  
+  // Last prediction
   if (historyState.history.length > 0) {
-    const scores = historyState.history.map(h => h.score || estimateHdiScore(h.inputs));
-    const highest = Math.max(...scores);
-    const lowest = Math.min(...scores);
-    const average = scores.reduce((a, b) => a + b, 0) / scores.length;
-    
-    highestHdiEl.textContent = highest.toFixed(3);
-    lowestHdiEl.textContent = lowest.toFixed(3);
-    averageHdiEl.textContent = average.toFixed(3);
-    
-    // Latest prediction (most recent)
-    const latest = historyState.history[0];
-    if (latest) {
-      latestPredictionEl.textContent = latest.category;
-    }
+    const last = historyState.history[0];
+    lastPredictionEl.textContent = formatDate(last.created_at);
   } else {
-    highestHdiEl.textContent = "0.000";
-    lowestHdiEl.textContent = "0.000";
-    averageHdiEl.textContent = "0.000";
-    latestPredictionEl.textContent = "-";
+    lastPredictionEl.textContent = "-";
+  }
+
+  // Average confidence
+  if (historyState.history.length > 0) {
+    const confidences = historyState.history.map(p => {
+      try {
+        const conf = JSON.parse(p.confidence);
+        return p.prediction ? conf[p.prediction] : 0;
+      } catch {
+        return 0;
+      }
+    }).filter(c => c > 0);
+    const avg = confidences.length > 0 ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
+    averageConfidenceEl.textContent = `${Math.round(avg)}%`;
+  } else {
+    averageConfidenceEl.textContent = "-";
+  }
+
+  // Most predicted category
+  if (historyState.history.length > 0) {
+    const categoryCounts = {};
+    historyState.history.forEach(p => {
+      categoryCounts[p.prediction] = (categoryCounts[p.prediction] || 0) + 1;
+    });
+    const mostPredicted = Object.entries(categoryCounts).reduce((a, b) => a[1] > b[1] ? a : b);
+    mostPredictedCategoryEl.innerHTML = `<span class="badge bg-${getCategoryBadgeColor(mostPredicted[0])}">${mostPredicted[0]}</span>`;
+  } else {
+    mostPredictedCategoryEl.textContent = "-";
   }
 }
 
@@ -187,32 +222,25 @@ function getFilteredHistory() {
 
   // Apply category filter
   if (historyState.categoryFilter !== "all") {
-    filtered = filtered.filter(h => h.category === historyState.categoryFilter);
+    filtered = filtered.filter(h => h.prediction === historyState.categoryFilter);
   }
 
   // Apply search filter
   if (historyState.searchQuery) {
     const query = historyState.searchQuery.toLowerCase();
     filtered = filtered.filter(h =>
-      h.country.toLowerCase().includes(query) ||
-      h.category.toLowerCase().includes(query) ||
-      h.date.toLowerCase().includes(query)
+      (h.country && h.country.toLowerCase().includes(query)) ||
+      (h.prediction && h.prediction.toLowerCase().includes(query))
     );
   }
 
   // Apply sorting
   switch (historyState.sortBy) {
     case "newest":
-      filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       break;
     case "oldest":
-      filtered.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      break;
-    case "highest":
-      filtered.sort((a, b) => (b.score || estimateHdiScore(b.inputs)) - (a.score || estimateHdiScore(a.inputs)));
-      break;
-    case "lowest":
-      filtered.sort((a, b) => (a.score || estimateHdiScore(a.inputs)) - (b.score || estimateHdiScore(b.inputs)));
+      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       break;
   }
 
@@ -240,33 +268,35 @@ function renderHistory() {
   const paginated = filtered.slice(startIndex, startIndex + historyState.itemsPerPage);
 
   // Render rows
-  historyBody.innerHTML = paginated.map((item, idx) => {
-    const actualIndex = startIndex + idx;
-    const score = item.score || estimateHdiScore(item.inputs);
+  historyBody.innerHTML = paginated.map((item) => {
     const flagCode = getCountryCode(item.country);
     const flagEmoji = flagCode ? getFlagEmoji(flagCode) : "🌐";
+    const badgeClass = getCategoryBadgeClass(item.prediction);
+    const badgeColor = getCategoryBadgeColor(item.prediction);
+
+    // Parse confidence for display
+    let confidenceValue = 0;
+    try {
+      const conf = JSON.parse(item.confidence);
+      confidenceValue = item.prediction ? conf[item.prediction] : 0;
+    } catch {
+      confidenceValue = 0;
+    }
 
     return `
       <tr class="history-row">
-        <td>${item.country}</td>
-        <td>${flagEmoji}</td>
-        <td>${item.inputs?.life_expectancy ?? "-"}</td>
-        <td>${item.inputs?.mean_years_schooling ?? "-"}</td>
-        <td>${item.inputs?.expected_years_schooling ?? "-"}</td>
-        <td>${item.inputs?.gni_per_capita ? formatMoney(item.inputs.gni_per_capita) : "-"}</td>
-        <td>${score.toFixed(3)}</td>
-        <td><span class="category-badge ${item.category.toLowerCase().replace(" ", "-")}">${item.category}</span></td>
-        <td>${item.date}</td>
-        <td>${item.time}</td>
+        <td>${formatDate(item.created_at)}</td>
+        <td>${item.country || "-"}</td>
+        <td><span class="badge bg-${badgeColor}">${item.prediction}</span></td>
+        <td>${item.score ? item.score.toFixed(3) : "-"}</td>
+        <td>${Math.round(confidenceValue)}%</td>
+        <td>Random Forest</td>
         <td>
           <div class="d-flex gap-1">
-            <button type="button" class="action-btn view-btn" data-index="${actualIndex}" title="View">
+            <button type="button" class="action-btn view-btn" data-id="${item.id}" title="View">
               <i class="bi bi-eye"></i>
             </button>
-            <button type="button" class="action-btn download-btn" data-index="${actualIndex}" title="Download PDF">
-              <i class="bi bi-download"></i>
-            </button>
-            <button type="button" class="action-btn delete-btn" data-index="${actualIndex}" title="Delete">
+            <button type="button" class="action-btn delete-btn" data-id="${item.id}" title="Delete">
               <i class="bi bi-trash"></i>
             </button>
           </div>
@@ -317,135 +347,90 @@ function renderPagination() {
 }
 
 // ── View Modal ─────────────────────────────────────────────────────────
-function showViewModal(index) {
-  const entry = historyState.history[index];
-  if (!entry) return;
+async function showViewModal(predictionId) {
+  try {
+    const response = await fetch(`/api/predictions/${predictionId}`);
+    if (!response.ok) {
+      throw new Error("Failed to load prediction details");
+    }
+    const data = await response.json();
+    const entry = data.prediction;
+    if (!entry) return;
 
-  const score = entry.score || estimateHdiScore(entry.inputs);
-  const flagCode = getCountryCode(entry.country);
-  const flagEmoji = flagCode ? getFlagEmoji(flagCode) : "🌐";
+    const flagCode = getCountryCode(entry.country);
+    const flagEmoji = flagCode ? getFlagEmoji(flagCode) : "🌐";
 
-  const modalBody = document.getElementById("viewModalBody");
-  modalBody.innerHTML = `
-    <div class="view-modal-grid">
-      <div class="view-modal-item">
-        <span class="view-modal-label">Country</span>
-        <span class="view-modal-value">${flagEmoji} ${entry.country}</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">HDI Category</span>
-        <span class="view-modal-value">
-          <span class="category-badge ${entry.category.toLowerCase().replace(" ", "-")}">${entry.category}</span>
-        </span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">HDI Score</span>
-        <span class="view-modal-value">${score.toFixed(3)}</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">Life Expectancy</span>
-        <span class="view-modal-value">${entry.inputs?.life_expectancy ?? "-"} years</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">Mean Years of Schooling</span>
-        <span class="view-modal-value">${entry.inputs?.mean_years_schooling ?? "-"} years</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">Expected Years of Schooling</span>
-        <span class="view-modal-value">${entry.inputs?.expected_years_schooling ?? "-"} years</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">GNI Per Capita</span>
-        <span class="view-modal-value">${entry.inputs?.gni_per_capita ? formatMoney(entry.inputs.gni_per_capita) : "-"}</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">Prediction Date</span>
-        <span class="view-modal-value">${entry.date}</span>
-      </div>
-      <div class="view-modal-item">
-        <span class="view-modal-label">Prediction Time</span>
-        <span class="view-modal-value">${entry.time}</span>
-      </div>
-      ${entry.recommendations ? `
-      <div class="view-modal-item">
-        <span class="view-modal-label">Recommendations</span>
-        <span class="view-modal-value" style="text-align: right; max-width: 300px;">
-          <ul class="recommendation-list" style="margin: 0; padding-left: 1.2rem; text-align: left;">
-            ${entry.recommendations.map(r => `<li>${r}</li>`).join("")}
-          </ul>
-        </span>
-      </div>
-      ` : ""}
-    </div>
-  `;
+    // Parse confidence
+    let confidenceObj = {};
+    try {
+      confidenceObj = JSON.parse(entry.confidence);
+    } catch {
+      confidenceObj = {};
+    }
 
-  const viewModal = new bootstrap.Modal(document.getElementById("viewModal"));
-  viewModal.show();
-}
+    const modalBody = document.getElementById("viewModalBody");
+    modalBody.innerHTML = `
+      <div class="view-modal-grid">
+        <div class="view-modal-item">
+          <span class="view-modal-label">Country</span>
+          <span class="view-modal-value">${flagEmoji} ${entry.country || "-"}</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">HDI Category</span>
+          <span class="view-modal-value">
+            <span class="badge bg-${getCategoryBadgeColor(entry.prediction)}">${entry.prediction}</span>
+          </span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Prediction Score</span>
+          <span class="view-modal-value">${entry.score ? entry.score.toFixed(3) : "-"}</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Confidence</span>
+          <span class="view-modal-value">${entry.prediction ? confidenceObj[entry.prediction] || 0 : 0}%</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Life Expectancy</span>
+          <span class="view-modal-value">${entry.life_expectancy ?? "-"} years</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Mean Years of Schooling</span>
+          <span class="view-modal-value">${entry.mean_schooling ?? "-"} years</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Expected Years of Schooling</span>
+          <span class="view-modal-value">${entry.expected_schooling ?? "-"} years</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">GNI Per Capita</span>
+          <span class="view-modal-value">${entry.gni ? formatMoney(entry.gni) : "-"}</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Prediction Date</span>
+          <span class="view-modal-value">${formatDate(entry.created_at)}</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Prediction Time</span>
+          <span class="view-modal-value">${formatTime(entry.created_at)}</span>
+        </div>
+        <div class="view-modal-item">
+          <span class="view-modal-label">Model Used</span>
+          <span class="view-modal-value">Random Forest</span>
+        </div>
+      </div>
+    `;
 
-// ── Download Single Entry as PDF ───────────────────────────────────────
-function downloadEntryPdf(index) {
-  const entry = historyState.history[index];
-  if (!entry) return;
-
-  const score = entry.score || estimateHdiScore(entry.inputs);
-  const flagCode = getCountryCode(entry.country);
-  const flagEmoji = flagCode ? getFlagEmoji(flagCode) : "🌐";
-
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    createToast("Unable to open print window.", "danger");
-    return;
+    const viewModal = new bootstrap.Modal(document.getElementById("viewModal"));
+    viewModal.show();
+  } catch (error) {
+    console.error("Error loading prediction:", error);
+    createToast("Failed to load prediction details.", "danger");
   }
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>HDI Report - ${entry.country}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-        h1 { margin-bottom: 18px; }
-        h2 { margin-top: 24px; }
-        .label { font-weight: 600; color: #555; }
-        .value { font-weight: 700; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
-        .very-high { background: #d1fae5; color: #065f46; }
-        .high { background: #dbeafe; color: #1e40af; }
-        .medium { background: #fef3c7; color: #92400e; }
-        .low { background: #fee2e2; color: #991b1b; }
-        ul { margin-top: 0; }
-      </style>
-    </head>
-    <body>
-      <h1>HDI Prediction Report</h1>
-      <p><span class="label">Country:</span> <span class="value">${flagEmoji} ${entry.country}</span></p>
-      <p><span class="label">Category:</span> <span class="badge ${entry.category.toLowerCase().replace(" ", "-")}">${entry.category}</span></p>
-      <p><span class="label">HDI Score:</span> <span class="value">${score.toFixed(3)}</span></p>
-      <p><span class="label">Date:</span> <span class="value">${entry.date}</span></p>
-      <p><span class="label">Time:</span> <span class="value">${entry.time}</span></p>
-      <h2>Indicators</h2>
-      <ul>
-        <li>Life Expectancy: ${entry.inputs?.life_expectancy ?? "-"} years</li>
-        <li>Mean Years of Schooling: ${entry.inputs?.mean_years_schooling ?? "-"} years</li>
-        <li>Expected Years of Schooling: ${entry.inputs?.expected_years_schooling ?? "-"} years</li>
-        <li>GNI Per Capita: ${entry.inputs?.gni_per_capita ? formatMoney(entry.inputs.gni_per_capita) : "-"}</li>
-      </ul>
-      ${entry.recommendations ? `
-      <h2>Recommendations</h2>
-      <ul>${entry.recommendations.map(r => `<li>${r}</li>`).join("")}</ul>
-      ` : ""}
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
 }
 
 // ── Delete Entry ───────────────────────────────────────────────────────
-function deleteEntry(index) {
-  historyState.deleteIndex = index;
+function deleteEntry(predictionId) {
+  historyState.deleteId = predictionId;
   const deleteModal = new bootstrap.Modal(document.getElementById("deleteModal"));
   deleteModal.show();
 }
@@ -471,14 +456,14 @@ function exportAllPdf() {
   }
 
   let rows = filtered.map(entry => {
-    const score = entry.score || estimateHdiScore(entry.inputs);
     return `
       <tr>
-        <td>${entry.country}</td>
-        <td>${score.toFixed(3)}</td>
-        <td>${entry.category}</td>
-        <td>${entry.date}</td>
-        <td>${entry.time}</td>
+        <td>${formatDate(entry.created_at)}</td>
+        <td>${entry.country || "-"}</td>
+        <td>${entry.prediction}</td>
+        <td>${entry.score ? entry.score.toFixed(3) : "-"}</td>
+        <td>${entry.prediction ? JSON.parse(entry.confidence || '{}')[entry.prediction] || 0 : 0}%</td>
+        <td>Random Forest</td>
       </tr>
     `;
   }).join("");
@@ -501,11 +486,12 @@ function exportAllPdf() {
       <table>
         <thead>
           <tr>
-            <th>Country</th>
-            <th>HDI Score</th>
-            <th>Category</th>
             <th>Date</th>
-            <th>Time</th>
+            <th>Country</th>
+            <th>Category</th>
+            <th>Score</th>
+            <th>Confidence</th>
+            <th>Model</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -529,19 +515,15 @@ function exportAllExcel() {
   const wsData = [
     ["HDI Prediction History"],
     [],
-    ["Country", "HDI Score", "Category", "Life Expectancy", "Mean Schooling", "Expected Schooling", "GNI", "Date", "Time"],
+    ["Date", "Country", "Category", "Score", "Confidence", "Model"],
     ...filtered.map(entry => {
-      const score = entry.score || estimateHdiScore(entry.inputs);
       return [
-        entry.country,
-        score.toFixed(3),
-        entry.category,
-        entry.inputs?.life_expectancy ?? "-",
-        entry.inputs?.mean_years_schooling ?? "-",
-        entry.inputs?.expected_years_schooling ?? "-",
-        entry.inputs?.gni_per_capita ? formatMoney(entry.inputs.gni_per_capita) : "-",
-        entry.date,
-        entry.time,
+        formatDate(entry.created_at),
+        entry.country || "-",
+        entry.prediction,
+        entry.score ? entry.score.toFixed(3) : "-",
+        entry.prediction ? JSON.parse(entry.confidence || '{}')[entry.prediction] || 0 : 0,
+        "Random Forest",
       ];
     }),
   ];
@@ -568,14 +550,14 @@ function printHistory() {
   }
 
   let rows = filtered.map(entry => {
-    const score = entry.score || estimateHdiScore(entry.inputs);
     return `
       <tr>
-        <td>${entry.country}</td>
-        <td>${score.toFixed(3)}</td>
-        <td>${entry.category}</td>
-        <td>${entry.date}</td>
-        <td>${entry.time}</td>
+        <td>${formatDate(entry.created_at)}</td>
+        <td>${entry.country || "-"}</td>
+        <td>${entry.prediction}</td>
+        <td>${entry.score ? entry.score.toFixed(3) : "-"}</td>
+        <td>${entry.prediction ? JSON.parse(entry.confidence || '{}')[entry.prediction] || 0 : 0}%</td>
+        <td>Random Forest</td>
       </tr>
     `;
   }).join("");
@@ -598,11 +580,12 @@ function printHistory() {
       <table>
         <thead>
           <tr>
-            <th>Country</th>
-            <th>HDI Score</th>
-            <th>Category</th>
             <th>Date</th>
-            <th>Time</th>
+            <th>Country</th>
+            <th>Category</th>
+            <th>Score</th>
+            <th>Confidence</th>
+            <th>Model</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -661,19 +644,14 @@ function initHistoryPage() {
   if (historyBody) {
     historyBody.addEventListener("click", (e) => {
       const viewBtn = e.target.closest(".view-btn");
-      const downloadBtn = e.target.closest(".download-btn");
       const deleteBtn = e.target.closest(".delete-btn");
 
       if (viewBtn) {
-        showViewModal(Number(viewBtn.dataset.index));
-        return;
-      }
-      if (downloadBtn) {
-        downloadEntryPdf(Number(downloadBtn.dataset.index));
+        showViewModal(Number(viewBtn.dataset.id));
         return;
       }
       if (deleteBtn) {
-        deleteEntry(Number(deleteBtn.dataset.index));
+        deleteEntry(Number(deleteBtn.dataset.id));
         return;
       }
     });
@@ -715,30 +693,43 @@ function initHistoryPage() {
 
   // Confirm delete
   if (confirmDeleteBtn) {
-    confirmDeleteBtn.addEventListener("click", () => {
-      if (historyState.deleteIndex !== null) {
-        historyState.history.splice(historyState.deleteIndex, 1);
-        localStorage.setItem("hdiPredictionHistory", JSON.stringify(historyState.history));
-        const deleteModal = bootstrap.Modal.getInstance(document.getElementById("deleteModal"));
-        deleteModal.hide();
-        historyState.deleteIndex = null;
-        updateStats();
-        renderHistory();
-        createToast("Prediction deleted successfully.");
+    confirmDeleteBtn.addEventListener("click", async () => {
+      if (historyState.deleteId !== null) {
+        try {
+          const response = await fetch(`/api/predictions/${historyState.deleteId}`, {
+            method: "DELETE"
+          });
+          if (response.ok) {
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById("deleteModal"));
+            deleteModal.hide();
+            historyState.deleteId = null;
+            loadHistory();
+            createToast("Prediction deleted successfully.");
+          } else {
+            createToast("Failed to delete prediction.", "danger");
+          }
+        } catch (error) {
+          createToast("Network error. Please try again.", "danger");
+        }
       }
     });
   }
 
   // Confirm clear all
   if (confirmClearAllBtn) {
-    confirmClearAllBtn.addEventListener("click", () => {
-      historyState.history = [];
-      localStorage.removeItem("hdiPredictionHistory");
-      const clearAllModal = bootstrap.Modal.getInstance(document.getElementById("clearAllModal"));
-      clearAllModal.hide();
-      updateStats();
-      renderHistory();
-      createToast("All history cleared successfully.");
+    confirmClearAllBtn.addEventListener("click", async () => {
+      try {
+        // Delete all predictions
+        for (const item of historyState.history) {
+          await fetch(`/api/predictions/${item.id}`, { method: "DELETE" });
+        }
+        const clearAllModal = bootstrap.Modal.getInstance(document.getElementById("clearAllModal"));
+        clearAllModal.hide();
+        loadHistory();
+        createToast("All history cleared successfully.");
+      } catch (error) {
+        createToast("Failed to clear history.", "danger");
+      }
     });
   }
 
